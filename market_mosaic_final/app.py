@@ -2,209 +2,48 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 import os, json, secrets, csv, io
-import psycopg2
-import psycopg2.extras
+import psycopg2, psycopg2.extras
 from datetime import datetime, timedelta
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'change-this-in-production-please')
-
-# ── Google OAuth config ───────────────────────────────────
-GOOGLE_CLIENT_ID     = os.environ.get('GOOGLE_CLIENT_ID', '')
-GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '')
-GOOGLE_REDIRECT_URI  = os.environ.get('GOOGLE_REDIRECT_URI', 'https://market-mosaic-v2.onrender.com/auth/google/callback')
-
-# ── PostgreSQL connection (Supabase / Render Postgres) ────
-DATABASE_URL = os.environ.get('DATABASE_URL', '')
-
+GOOGLE_CLIENT_ID=os.environ.get('GOOGLE_CLIENT_ID','')
+GOOGLE_CLIENT_SECRET=os.environ.get('GOOGLE_CLIENT_SECRET','')
+GOOGLE_REDIRECT_URI=os.environ.get('GOOGLE_REDIRECT_URI','https://market-mosaic-v2.onrender.com/auth/google/callback')
+DATABASE_URL=os.environ.get('DATABASE_URL','')
 class PGConn:
-    """Wrapper that makes psycopg2 behave like sqlite3 for our query patterns."""
-    def __init__(self):
-        self.conn = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
-
-    def execute(self, sql, params=None):
-        cur = self.conn.cursor()
-        cur.execute(sql, params or ())
-        return PGCursor(cur)
-
-    def executemany(self, sql, data):
-        cur = self.conn.cursor()
-        for row in data:
-            cur.execute(sql, row)
-        cur.close()
-
-    def commit(self):
-        self.conn.commit()
-
-    def close(self):
-        self.conn.close()
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if exc_type:
-            self.conn.rollback()
-        else:
-            self.conn.commit()
-        self.conn.close()
-
+    def __init__(self): self.conn=psycopg2.connect(DATABASE_URL,cursor_factory=psycopg2.extras.RealDictCursor)
+    def execute(self,sql,p=None):
+        c=self.conn.cursor(); c.execute(sql,p or ()); return PGCursor(c)
+    def executemany(self,sql,data):
+        c=self.conn.cursor()
+        [c.execute(sql,r) for r in data]; c.close()
+    def __enter__(self): return self
+    def __exit__(self,et,ev,tb): (self.conn.rollback if et else self.conn.commit)(); self.conn.close()
 class PGCursor:
-    """Wrapper that makes psycopg2 cursor behave like sqlite3 cursor."""
-    def __init__(self, cur):
-        self.cur = cur
-        self._rows = None
-
-    def _fetch_all(self):
-        if self._rows is None:
-            self._rows = self.cur.fetchall()
-        return self._rows
-
+    def __init__(self,c): self.cur=c
     def fetchone(self):
-        """Returns a ScalarRow that supports both dict access and [0] indexing."""
-        row = self.cur.fetchone()
-        if row is None:
-            return ScalarRow(None)
-        return ScalarRow(dict(row))
-
-    def fetchall(self):
-        return [dict(r) for r in self.cur.fetchall()]
-
-    def __getitem__(self, key):
-        return self._fetch_all()[key]
-
-    def __iter__(self):
-        return iter(self.fetchall())
-
+        r=self.cur.fetchone()
+        return ScalarRow(dict(r)) if r else ScalarRow(None)
+    def fetchall(self): return [dict(r) for r in self.cur.fetchall()]
+    def __iter__(self): return iter(self.fetchall())
 class ScalarRow:
-    """Row that supports dict-style AND [0] index access."""
-    def __init__(self, data):
-        self.data = data or {}
-
-    def __getitem__(self, key):
-        if isinstance(key, int):
-            if self.data is None:
-                return None
-            return list(self.data.values())[key]
-        return self.data.get(key)
-
-    def __bool__(self):
-        return bool(self.data)
-
-    def get(self, key, default=None):
-        if not self.data:
-            return default
-        return self.data.get(key, default)
-
-    def keys(self):
-        return self.data.keys() if self.data else []
-
-    def values(self):
-        return self.data.values() if self.data else []
-
-    def items(self):
-        return self.data.items() if self.data else []
-
-    def __repr__(self):
-        return repr(self.data)
-
-def get_db():
-    return PGConn()
+    def __init__(self,d): self.data=d or {}
+    def __getitem__(self,k): return (list(self.data.values())[k] if self.data else None) if isinstance(k,int) else self.data.get(k)
+    def __bool__(self): return bool(self.data)
+    def get(self,k,d=None): return self.data.get(k,d) if self.data else d
+    def keys(self): return self.data.keys()
+    def values(self): return self.data.values()
+    def items(self): return self.data.items()
+def get_db(): return PGConn()
 
 def init_db():
+    _T=['CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY,name TEXT NOT NULL,company TEXT NOT NULL,email TEXT UNIQUE NOT NULL,password TEXT NOT NULL,plan TEXT DEFAULT \'free\',is_admin INTEGER DEFAULT 0,api_key TEXT UNIQUE,phone TEXT,notif_app INTEGER DEFAULT 1,notif_whatsapp INTEGER DEFAULT 0,notif_sms INTEGER DEFAULT 0,created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)','CREATE TABLE IF NOT EXISTS campaigns (id SERIAL PRIMARY KEY,user_id INTEGER NOT NULL,name TEXT NOT NULL,channel TEXT NOT NULL,status TEXT DEFAULT \'draft\',budget REAL DEFAULT 0,spent REAL DEFAULT 0,impressions INTEGER DEFAULT 0,clicks INTEGER DEFAULT 0,conversions INTEGER DEFAULT 0,notes TEXT DEFAULT \'\',created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)','CREATE TABLE IF NOT EXISTS leads (id SERIAL PRIMARY KEY,user_id INTEGER NOT NULL,name TEXT NOT NULL,email TEXT NOT NULL,company TEXT,phone TEXT,status TEXT DEFAULT \'new\',source TEXT DEFAULT \'organic\',notes TEXT DEFAULT \'\',created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)','CREATE TABLE IF NOT EXISTS password_resets (id SERIAL PRIMARY KEY,user_id INTEGER NOT NULL,token TEXT UNIQUE NOT NULL,expires_at TIMESTAMP NOT NULL,used INTEGER DEFAULT 0,FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)','CREATE TABLE IF NOT EXISTS notifications (id SERIAL PRIMARY KEY,user_id INTEGER NOT NULL,message TEXT NOT NULL,read INTEGER DEFAULT 0,created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)','CREATE TABLE IF NOT EXISTS payments (id SERIAL PRIMARY KEY,user_id INTEGER NOT NULL,order_id TEXT,payment_id TEXT,plan TEXT NOT NULL,amount REAL DEFAULT 0,status TEXT DEFAULT \'pending\',created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)','CREATE TABLE IF NOT EXISTS contacts (id SERIAL PRIMARY KEY,user_id INTEGER NOT NULL,name TEXT NOT NULL,email TEXT,phone TEXT,company TEXT,title TEXT,source TEXT DEFAULT \'manual\',stage TEXT DEFAULT \'lead\',owner TEXT,tags TEXT DEFAULT \'\',notes TEXT DEFAULT \'\',last_contacted TIMESTAMP,created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)','CREATE TABLE IF NOT EXISTS deals (id SERIAL PRIMARY KEY,user_id INTEGER NOT NULL,title TEXT NOT NULL,contact_id INTEGER,value REAL DEFAULT 0,stage TEXT DEFAULT \'prospecting\',probability INTEGER DEFAULT 10,close_date TEXT,owner TEXT,notes TEXT DEFAULT \'\',created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)','CREATE TABLE IF NOT EXISTS activities (id SERIAL PRIMARY KEY,user_id INTEGER NOT NULL,contact_id INTEGER,deal_id INTEGER,type TEXT NOT NULL,subject TEXT NOT NULL,notes TEXT DEFAULT \'\',due_date TEXT,completed INTEGER DEFAULT 0,created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)','CREATE TABLE IF NOT EXISTS tasks (id SERIAL PRIMARY KEY,user_id INTEGER NOT NULL,title TEXT NOT NULL,related_to TEXT DEFAULT \'\',due_date TEXT,priority TEXT DEFAULT \'medium\',status TEXT DEFAULT \'open\',created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)','CREATE TABLE IF NOT EXISTS clients (id SERIAL PRIMARY KEY,agency_user_id INTEGER NOT NULL,name TEXT NOT NULL,company TEXT NOT NULL,email TEXT UNIQUE NOT NULL,password TEXT NOT NULL,created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY (agency_user_id) REFERENCES users(id) ON DELETE CASCADE)','CREATE TABLE IF NOT EXISTS email_templates (id SERIAL PRIMARY KEY,user_id INTEGER NOT NULL,name TEXT NOT NULL,subject TEXT NOT NULL,body_html TEXT NOT NULL,created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)','CREATE TABLE IF NOT EXISTS sent_emails (id SERIAL PRIMARY KEY,user_id INTEGER NOT NULL,to_email TEXT NOT NULL,to_name TEXT DEFAULT \'\',subject TEXT NOT NULL,template_name TEXT DEFAULT \'\',status TEXT DEFAULT \'simulated\',error TEXT DEFAULT \'\',sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)']
     with get_db() as db:
-        cur = db.cursor()
-        tables = [
-            """CREATE TABLE IF NOT EXISTS users (
-                id SERIAL PRIMARY KEY,
-                name TEXT NOT NULL, company TEXT NOT NULL,
-                email TEXT UNIQUE NOT NULL, password TEXT NOT NULL,
-                plan TEXT DEFAULT 'free', is_admin INTEGER DEFAULT 0,
-                api_key TEXT UNIQUE, phone TEXT,
-                notif_app INTEGER DEFAULT 1,
-                notif_whatsapp INTEGER DEFAULT 0,
-                notif_sms INTEGER DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )""",
-            """CREATE TABLE IF NOT EXISTS campaigns (
-                id SERIAL PRIMARY KEY,
-                user_id INTEGER NOT NULL, name TEXT NOT NULL, channel TEXT NOT NULL,
-                status TEXT DEFAULT 'draft', budget REAL DEFAULT 0, spent REAL DEFAULT 0,
-                impressions INTEGER DEFAULT 0, clicks INTEGER DEFAULT 0,
-                conversions INTEGER DEFAULT 0, notes TEXT DEFAULT '',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-            )""",
-            """CREATE TABLE IF NOT EXISTS leads (
-                id SERIAL PRIMARY KEY,
-                user_id INTEGER NOT NULL, name TEXT NOT NULL, email TEXT NOT NULL,
-                company TEXT, phone TEXT, status TEXT DEFAULT 'new',
-                source TEXT DEFAULT 'organic', notes TEXT DEFAULT '',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-            )""",
-            """CREATE TABLE IF NOT EXISTS password_resets (
-                id SERIAL PRIMARY KEY,
-                user_id INTEGER NOT NULL, token TEXT UNIQUE NOT NULL,
-                expires_at TIMESTAMP NOT NULL, used INTEGER DEFAULT 0,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-            )""",
-            """CREATE TABLE IF NOT EXISTS notifications (
-                id SERIAL PRIMARY KEY,
-                user_id INTEGER NOT NULL, message TEXT NOT NULL,
-                read INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-            )""",
-            """CREATE TABLE IF NOT EXISTS payments (
-                id SERIAL PRIMARY KEY,
-                user_id INTEGER NOT NULL,
-                order_id TEXT, payment_id TEXT,
-                plan TEXT NOT NULL, amount REAL DEFAULT 0,
-                status TEXT DEFAULT 'pending',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-            )""",
-            """CREATE TABLE IF NOT EXISTS contacts (
-                id SERIAL PRIMARY KEY,
-                user_id INTEGER NOT NULL,
-                name TEXT NOT NULL, email TEXT, phone TEXT,
-                company TEXT, title TEXT,
-                source TEXT DEFAULT 'manual', stage TEXT DEFAULT 'lead',
-                owner TEXT, tags TEXT DEFAULT '', notes TEXT DEFAULT '',
-                last_contacted TIMESTAMP,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-            )""",
-            """CREATE TABLE IF NOT EXISTS deals (
-                id SERIAL PRIMARY KEY,
-                user_id INTEGER NOT NULL, title TEXT NOT NULL,
-                contact_id INTEGER, value REAL DEFAULT 0,
-                stage TEXT DEFAULT 'prospecting', probability INTEGER DEFAULT 10,
-                close_date TEXT, owner TEXT, notes TEXT DEFAULT '',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-            )""",
-            """CREATE TABLE IF NOT EXISTS activities (
-                id SERIAL PRIMARY KEY,
-                user_id INTEGER NOT NULL, contact_id INTEGER, deal_id INTEGER,
-                type TEXT NOT NULL, subject TEXT NOT NULL,
-                notes TEXT DEFAULT '', due_date TEXT, completed INTEGER DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-            )""",
-            """CREATE TABLE IF NOT EXISTS tasks (
-                id SERIAL PRIMARY KEY,
-                user_id INTEGER NOT NULL, title TEXT NOT NULL,
-                related_to TEXT DEFAULT '', due_date TEXT,
-                priority TEXT DEFAULT 'medium', status TEXT DEFAULT 'open',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-            )""",
-        ]
-        for sql in tables:
-            cur.execute(sql)
-        db.commit()
-        cur.close()
+        c=db.conn.cursor()
+        [c.execute(s) for s in _T]
+        db.conn.commit(); c.close()
+
 init_db()
 
 # ── HELPERS ───────────────────────────────────────────────
@@ -229,29 +68,10 @@ def admin_required(f):
 def get_current_user():
     if 'user_id' in session:
         with get_db() as db:
-            user = db.execute('SELECT * FROM users WHERE id=%s', (session['user_id'],)).fetchone()
-            if not user:
-                # User deleted or DB reset — clear stale session
-                session.clear()
-            return user
+            u=db.execute('SELECT * FROM users WHERE id=%s',(session['user_id'],)).fetchone()
+            if not u: session.clear()
+            return u
     return None
-
-def require_valid_user():
-    """Call at start of any route that needs user. Returns user or None after clearing session."""
-    user = get_current_user()
-    if user is None and 'user_id' in session:
-        session.clear()
-    return user
-
-def scalar(result):
-    """Get first value from a single-row result."""
-    row = result.fetchone() if hasattr(result, 'fetchone') else result
-    if row is None:
-        return None
-    if isinstance(row, dict):
-        return list(row.values())[0]
-    return row[0]
-
 
 def add_notification(uid, msg):
     with get_db() as db:
@@ -259,8 +79,8 @@ def add_notification(uid, msg):
 
 def unread(uid):
     with get_db() as db:
-        row = db.execute('SELECT COUNT(*) FROM notifications WHERE user_id=%s AND read=0', (uid,)).fetchone()
-        return row[0] if row else 0
+        r=db.execute('SELECT COUNT(*) FROM notifications WHERE user_id=%s AND read=0',(uid,)).fetchone()
+        return r[0] if r else 0
 
 def api_auth():
     key = request.headers.get('X-API-Key') or request.args.get('api_key')
@@ -352,16 +172,15 @@ def signup():
                                (name,company,email,generate_password_hash(password),api_key))
                     user=db.execute('SELECT * FROM users WHERE email=%s',(email,)).fetchone()
                     _seed_demo(db, user['id'])
+                    _seed_crm_demo(db, user['id'])
+                    seed_email_templates(user['id'])
                     send_notification(user['id'], f'Welcome to Market Mosaic, {name}! Your dashboard is ready.', channels=('app','whatsapp','sms'))
                 session['user_id']=user['id']; session['user_name']=name
                 flash(f'Welcome to Market Mosaic, {name}!','success')
                 return redirect(url_for('dashboard'))
-            except Exception as e:
-                if 'unique' in str(e).lower() or 'duplicate' in str(e).lower():
-                    flash('An account with that email already exists.','error')
-                else:
-                    flash('Registration error. Please try again.','error')
-                    app.logger.error(f'Signup error: {e}')
+            except Exception as _e:
+                if 'unique' in str(_e).lower() or 'duplicate' in str(_e).lower(): flash('An account with that email already exists.','error')
+                else: app.logger.error(f'Signup error: {_e}')
     return render_template('signup.html', user=None)
 
 @app.route('/login', methods=['GET','POST'])
@@ -416,6 +235,7 @@ def reset_password(token):
 @login_required
 def dashboard():
     user=get_current_user()
+    if not user: session.clear(); return redirect(url_for('login'))
     with get_db() as db:
         campaigns=db.execute('SELECT * FROM campaigns WHERE user_id=%s ORDER BY created_at DESC LIMIT 5',(user['id'],)).fetchall()
         leads=db.execute('SELECT * FROM leads WHERE user_id=%s ORDER BY created_at DESC LIMIT 5',(user['id'],)).fetchall()
@@ -435,9 +255,7 @@ def dashboard():
 @app.route('/dashboard/campaigns')
 @login_required
 def campaigns():
-    user=get_current_user()
-    if not user: session.clear(); return redirect(url_for('login'))
-    sf=request.args.get('status','')
+    user=get_current_user(); sf=request.args.get('status','')
     with get_db() as db:
         q='SELECT * FROM campaigns WHERE user_id=%s'; p=[user['id']]
         if sf: q+=' AND status=%s'; p.append(sf)
@@ -507,9 +325,7 @@ def export_campaigns():
 @app.route('/dashboard/leads')
 @login_required
 def leads():
-    user=get_current_user()
-    if not user: session.clear(); return redirect(url_for('login'))
-    sf=request.args.get('status',''); search=request.args.get('q','').strip()
+    user=get_current_user(); sf=request.args.get('status',''); search=request.args.get('q','').strip()
     with get_db() as db:
         q='SELECT * FROM leads WHERE user_id=%s'; p=[user['id']]
         if sf: q+=' AND status=%s'; p.append(sf)
@@ -580,7 +396,6 @@ def export_leads():
 @login_required
 def analytics():
     user=get_current_user()
-    if not user: session.clear(); return redirect(url_for('login'))
     with get_db() as db:
         camp=db.execute('SELECT * FROM campaigns WHERE user_id=%s',(user['id'],)).fetchall()
         lsrc=db.execute('SELECT source,COUNT(*) as cnt FROM leads WHERE user_id=%s GROUP BY source',(user['id'],)).fetchall()
@@ -599,7 +414,6 @@ def analytics():
 @login_required
 def notifications():
     user=get_current_user()
-    if not user: session.clear(); return redirect(url_for('login'))
     with get_db() as db:
         notifs=db.execute('SELECT * FROM notifications WHERE user_id=%s ORDER BY created_at DESC',(user['id'],)).fetchall()
         db.execute('UPDATE notifications SET read=1 WHERE user_id=%s',(user['id'],))
@@ -610,7 +424,6 @@ def notifications():
 @login_required
 def settings():
     user=get_current_user()
-    if not user: session.clear(); return redirect(url_for('login'))
     if request.method=='POST':
         action=request.form.get('action','profile')
         if action=='profile':
@@ -720,13 +533,12 @@ if __name__ == '__main__':
 @login_required
 def reports():
     user = get_current_user()
-    if not user: session.clear(); return redirect(url_for('login'))
     with get_db() as db:
         campaigns = db.execute('SELECT * FROM campaigns WHERE user_id=%s ORDER BY spent DESC', (user['id'],)).fetchall()
         lead_by_status = db.execute('SELECT status, COUNT(*) as cnt FROM leads WHERE user_id=%s GROUP BY status', (user['id'],)).fetchall()
         lead_by_source = db.execute('SELECT source, COUNT(*) as cnt FROM leads WHERE user_id=%s GROUP BY source ORDER BY cnt DESC', (user['id'],)).fetchall()
         channel_spend  = db.execute('SELECT channel, SUM(spent) as spend FROM campaigns WHERE user_id=%s GROUP BY channel ORDER BY spend DESC', (user['id'],)).fetchall()
-        qualified_leads = db.execute('SELECT COUNT(*) FROM leads WHERE user_id=%s AND status="qualified"', (user['id'],)).fetchone()[0]
+        qualified_leads = db.execute("SELECT COUNT(*) FROM leads WHERE user_id=%s AND status='qualified'", (user['id'],)).fetchone()[0]
         stats = {
             'total_campaigns':  db.execute('SELECT COUNT(*) FROM campaigns WHERE user_id=%s', (user['id'],)).fetchone()[0],
             'active_campaigns': db.execute("SELECT COUNT(*) FROM campaigns WHERE user_id=%s AND status='active'", (user['id'],)).fetchone()[0],
@@ -945,7 +757,6 @@ def razorpay_client():
 @login_required
 def billing():
     user = get_current_user()
-    if not user: session.clear(); return redirect(url_for('login'))
     with get_db() as db:
         payments = db.execute(
             'SELECT * FROM payments WHERE user_id=%s ORDER BY created_at DESC', (user['id'],)
@@ -1165,575 +976,6 @@ def send_test_notification():
 # ════════════════════════════════════════════════════════
 # CRM — CONTACTS
 # ════════════════════════════════════════════════════════
-@app.route('/crm/contacts')
-@login_required
-def crm_contacts():
-    user = get_current_user()
-    search = request.args.get('q','').strip()
-    tag    = request.args.get('tag','').strip()
-    with get_db() as db:
-        q = 'SELECT * FROM contacts WHERE user_id=%s'; p = [user['id']]
-        if search:
-            q += ' AND (name LIKE %s OR email LIKE %s OR company LIKE %s)'
-            p += [f'%{search}%']*3
-        if tag:
-            q += ' AND tags LIKE %s'; p.append(f'%{tag}%')
-        contacts = db.execute(q+' ORDER BY created_at DESC', p).fetchall()
-        total = db.execute('SELECT COUNT(*) FROM contacts WHERE user_id=%s',(user['id'],)).fetchone()[0]
-    return render_template('crm_contacts.html', user=user, contacts=contacts,
-                           search=search, tag=tag, total=total, unread=unread(user['id']))
-
-@app.route('/crm/contacts/new', methods=['GET','POST'])
-@login_required
-def crm_new_contact():
-    user = get_current_user()
-    if request.method == 'POST':
-        with get_db() as db:
-            db.execute('INSERT INTO contacts (user_id,name,email,phone,company,title,source,tags,notes) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)',
-                (user['id'], request.form.get('name',''), request.form.get('email',''),
-                 request.form.get('phone',''), request.form.get('company',''),
-                 request.form.get('title',''), request.form.get('source','manual'),
-                 request.form.get('tags',''), request.form.get('notes','')))
-        flash('Contact added!','success')
-        return redirect(url_for('crm_contacts'))
-    return render_template('crm_contact_form.html', user=user, contact=None, unread=unread(user['id']))
-
-@app.route('/crm/contacts/<int:cid>', methods=['GET','POST'])
-@login_required
-def crm_contact_detail(cid):
-    user = get_current_user()
-    with get_db() as db:
-        contact = db.execute('SELECT * FROM contacts WHERE id=%s AND user_id=%s',(cid,user['id'])).fetchone()
-        if not contact: flash('Not found','error'); return redirect(url_for('crm_contacts'))
-        if request.method == 'POST':
-            db.execute('UPDATE contacts SET name=%s,email=%s,phone=%s,company=%s,title=%s,source=%s,tags=%s,notes=%s WHERE id=%s',
-                (request.form.get('name'), request.form.get('email'), request.form.get('phone'),
-                 request.form.get('company'), request.form.get('title'), request.form.get('source'),
-                 request.form.get('tags'), request.form.get('notes'), cid))
-            flash('Contact updated!','success')
-            return redirect(url_for('crm_contact_detail', cid=cid))
-        deals      = db.execute('SELECT * FROM deals WHERE contact_id=%s ORDER BY created_at DESC',(cid,)).fetchall()
-        activities = db.execute('SELECT * FROM activities WHERE contact_id=%s ORDER BY created_at DESC',(cid,)).fetchall()
-    return render_template('crm_contact_detail.html', user=user, contact=contact,
-                           deals=deals, activities=activities, unread=unread(user['id']))
-
-@app.route('/crm/contacts/<int:cid>/delete', methods=['POST'])
-@login_required
-def crm_delete_contact(cid):
-    user = get_current_user()
-    with get_db() as db:
-        db.execute('DELETE FROM contacts WHERE id=%s AND user_id=%s',(cid,user['id']))
-    flash('Contact deleted.','success')
-    return redirect(url_for('crm_contacts'))
-
-# ════════════════════════════════════════════════════════
-# CRM — DEALS (PIPELINE)
-# ════════════════════════════════════════════════════════
-DEAL_STAGES = ['prospecting','qualification','proposal','negotiation','closed_won','closed_lost']
-
-@app.route('/crm/pipeline')
-@login_required
-def crm_pipeline():
-    user = get_current_user()
-    with get_db() as db:
-        all_deals = db.execute('''
-            SELECT d.*, c.name as contact_name
-            FROM deals d LEFT JOIN contacts c ON d.contact_id=c.id
-            WHERE d.user_id=%s ORDER BY d.value DESC
-        ''', (user['id'],)).fetchall()
-        contacts = db.execute('SELECT id,name FROM contacts WHERE user_id=%s',(user['id'],)).fetchall()
-        pipeline_value = db.execute("SELECT SUM(value) FROM deals WHERE user_id=%s AND stage NOT IN ('closed_lost')",(user['id'],)).fetchone()[0] or 0
-        won_value = db.execute("SELECT SUM(value) FROM deals WHERE user_id=%s AND stage='closed_won'",(user['id'],)).fetchone()[0] or 0
-    stages = {s: [d for d in all_deals if d['stage']==s] for s in DEAL_STAGES}
-    return render_template('crm_pipeline.html', user=user, stages=stages,
-                           DEAL_STAGES=DEAL_STAGES, contacts=contacts,
-                           pipeline_value=pipeline_value, won_value=won_value,
-                           unread=unread(user['id']))
-
-@app.route('/crm/deals/new', methods=['POST'])
-@login_required
-def crm_new_deal():
-    user = get_current_user()
-    with get_db() as db:
-        db.execute('INSERT INTO deals (user_id,title,contact_id,value,stage,probability,expected_close,notes) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)',
-            (user['id'], request.form.get('title'), request.form.get('contact_id') or None,
-             float(request.form.get('value',0) or 0), request.form.get('stage','prospecting'),
-             int(request.form.get('probability',10) or 10),
-             request.form.get('expected_close',''), request.form.get('notes','')))
-    flash('Deal created!','success')
-    return redirect(url_for('crm_pipeline'))
-
-@app.route('/crm/deals/<int:did>/move', methods=['POST'])
-@login_required
-def crm_move_deal(did):
-    user = get_current_user()
-    stage = request.form.get('stage','prospecting')
-    with get_db() as db:
-        db.execute('UPDATE deals SET stage=%s WHERE id=%s AND user_id=%s',(stage,did,user['id']))
-    return jsonify({'ok':True})
-
-@app.route('/crm/deals/<int:did>/delete', methods=['POST'])
-@login_required
-def crm_delete_deal(did):
-    user = get_current_user()
-    with get_db() as db:
-        db.execute('DELETE FROM deals WHERE id=%s AND user_id=%s',(did,user['id']))
-    flash('Deal deleted.','success')
-    return redirect(url_for('crm_pipeline'))
-
-# ════════════════════════════════════════════════════════
-# CRM — ACTIVITIES
-# ════════════════════════════════════════════════════════
-@app.route('/crm/activities')
-@login_required
-def crm_activities():
-    user = get_current_user()
-    with get_db() as db:
-        activities = db.execute('''
-            SELECT a.*, c.name as contact_name
-            FROM activities a LEFT JOIN contacts c ON a.contact_id=c.id
-            WHERE a.user_id=%s ORDER BY a.due_date ASC, a.created_at DESC
-        ''',(user['id'],)).fetchall()
-        contacts = db.execute('SELECT id,name FROM contacts WHERE user_id=%s',(user['id'],)).fetchall()
-    return render_template('crm_activities.html', user=user, activities=activities,
-                           contacts=contacts, unread=unread(user['id']))
-
-@app.route('/crm/activities/new', methods=['POST'])
-@login_required
-def crm_new_activity():
-    user = get_current_user()
-    with get_db() as db:
-        db.execute('INSERT INTO activities (user_id,contact_id,type,subject,notes,due_date) VALUES (%s,%s,%s,%s,%s,%s)',
-            (user['id'], request.form.get('contact_id') or None,
-             request.form.get('type','call'), request.form.get('subject',''),
-             request.form.get('notes',''), request.form.get('due_date','')))
-    flash('Activity logged!','success')
-    return redirect(url_for('crm_activities'))
-
-@app.route('/crm/activities/<int:aid>/done', methods=['POST'])
-@login_required
-def crm_activity_done(aid):
-    user = get_current_user()
-    with get_db() as db:
-        db.execute('UPDATE activities SET done=1 WHERE id=%s AND user_id=%s',(aid,user['id']))
-    return jsonify({'ok':True})
-
-# ════════════════════════════════════════════════════════
-# CRM — TASKS
-# ════════════════════════════════════════════════════════
-@app.route('/crm/tasks')
-@login_required
-def crm_tasks():
-    user = get_current_user()
-    with get_db() as db:
-        tasks = db.execute('SELECT * FROM tasks WHERE user_id=%s ORDER BY due_date ASC, priority DESC',(user['id'],)).fetchall()
-    return render_template('crm_tasks.html', user=user, tasks=tasks, unread=unread(user['id']))
-
-@app.route('/crm/tasks/new', methods=['POST'])
-@login_required
-def crm_new_task():
-    user = get_current_user()
-    with get_db() as db:
-        db.execute('INSERT INTO tasks (user_id,title,related_to,priority,due_date) VALUES (%s,%s,%s,%s,%s)',
-            (user['id'], request.form.get('title'), request.form.get('related_to',''),
-             request.form.get('priority','medium'), request.form.get('due_date','')))
-    flash('Task added!','success')
-    return redirect(url_for('crm_tasks'))
-
-@app.route('/crm/tasks/<int:tid>/done', methods=['POST'])
-@login_required
-def crm_task_done(tid):
-    user = get_current_user()
-    with get_db() as db:
-        db.execute('UPDATE tasks SET done=1 WHERE id=%s AND user_id=%s',(tid,user['id']))
-    return jsonify({'ok':True})
-
-# ════════════════════════════════════════════════════════
-# CRM — ANALYTICS (SMART INSIGHTS)
-# ════════════════════════════════════════════════════════
-@app.route('/crm/analytics')
-@login_required
-def crm_analytics():
-    user = get_current_user()
-    if not user: session.clear(); return redirect(url_for('login'))
-    with get_db() as db:
-        uid = user['id']
-        total_contacts = db.execute('SELECT COUNT(*) FROM contacts WHERE user_id=%s',(uid,)).fetchone()[0]
-        total_deals    = db.execute('SELECT COUNT(*) FROM deals WHERE user_id=%s',(uid,)).fetchone()[0]
-        won_deals      = db.execute("SELECT COUNT(*) FROM deals WHERE user_id=%s AND stage='closed_won'",(uid,)).fetchone()[0]
-        lost_deals     = db.execute("SELECT COUNT(*) FROM deals WHERE user_id=%s AND stage='closed_lost'",(uid,)).fetchone()[0]
-        pipeline_val   = db.execute("SELECT SUM(value) FROM deals WHERE user_id=%s AND stage NOT IN ('closed_lost','closed_won')",(uid,)).fetchone()[0] or 0
-        won_val        = db.execute("SELECT SUM(value) FROM deals WHERE user_id=%s AND stage='closed_won'",(uid,)).fetchone()[0] or 0
-        avg_deal_val   = db.execute("SELECT AVG(value) FROM deals WHERE user_id=%s AND stage='closed_won'",(uid,)).fetchone()[0] or 0
-        stage_data     = db.execute('SELECT stage,COUNT(*) as cnt,SUM(value) as val FROM deals WHERE user_id=%s GROUP BY stage',(uid,)).fetchall()
-        source_data    = db.execute('SELECT source,COUNT(*) as cnt FROM contacts WHERE user_id=%s GROUP BY source ORDER BY cnt DESC',(uid,)).fetchall()
-        contact_growth = db.execute("SELECT TO_CHAR(created_at, 'YYYY-MM') as mo, COUNT(*) as cnt FROM contacts WHERE user_id=%s GROUP BY mo ORDER BY mo DESC LIMIT 6",(uid,)).fetchall()
-        campaign_data  = db.execute('SELECT name,channel,spent,clicks,conversions,impressions FROM campaigns WHERE user_id=%s ORDER BY spent DESC',(uid,)).fetchall()
-
-        # Smart Insights
-        insights = []
-        conv_rate = round(won_deals/total_deals*100,1) if total_deals>0 else 0
-        if conv_rate < 20 and total_deals >= 3:
-            insights.append({'type':'warning','text':f'Your deal win rate is {conv_rate}% — industry average is 27%. Focus on qualification stage to improve.'})
-        if conv_rate >= 40:
-            insights.append({'type':'success','text':f'Excellent win rate of {conv_rate}%! You are outperforming the industry average of 27%.'})
-        for c in campaign_data:
-            if c['spent'] > 10000 and c['impressions'] > 0:
-                ctr = c['clicks']/c['impressions']*100
-                if ctr < 1:
-                    insights.append({'type':'warning','text':f'Campaign "{c["name"]}" has high spend (Rs{c["spent"]:,.0f}) but low CTR ({ctr:.1f}%). Consider pausing or reworking the creative.'})
-            if c['clicks'] > 0 and c['conversions'] == 0:
-                insights.append({'type':'warning','text':f'Campaign "{c["name"]}" has {c["clicks"]:,} clicks but zero conversions. Check your landing page.'})
-        if source_data:
-            top_source = source_data[0]
-            insights.append({'type':'info','text':f'Your top lead source is {top_source["source"]} with {top_source["cnt"]} contacts. Double down here.'})
-        if pipeline_val > 0:
-            insights.append({'type':'info','text':f'You have Rs{pipeline_val:,.0f} in active pipeline. Focus on deals in the Proposal and Negotiation stages to close faster.'})
-        if not insights:
-            insights.append({'type':'info','text':'Add more deals and campaigns to unlock smart insights.'})
-
-        chart_data = {
-            'stages': [r['stage'] for r in stage_data],
-            'stage_vals': [r['val'] or 0 for r in stage_data],
-            'stage_counts': [r['cnt'] for r in stage_data],
-            'sources': [r['source'] for r in source_data],
-            'source_counts': [r['cnt'] for r in source_data],
-            'months': [r['mo'] for r in reversed(list(contact_growth))],
-            'contact_counts': [r['cnt'] for r in reversed(list(contact_growth))],
-        }
-    return render_template('crm_analytics.html', user=user,
-        total_contacts=total_contacts, total_deals=total_deals,
-        won_deals=won_deals, lost_deals=lost_deals,
-        pipeline_val=pipeline_val, won_val=won_val,
-        avg_deal_val=avg_deal_val, conv_rate=conv_rate,
-        insights=insights, chart_data=json.dumps(chart_data),
-        unread=unread(user['id']))
-
-# ── CRM DATA SEEDER ───────────────────────────────────────
-def _seed_crm_demo(db, uid):
-    db.executemany('INSERT INTO contacts (user_id,name,email,phone,company,title,source,tags) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)',[
-        (uid,'Priya Sharma','priya@techcorp.in','+91 98100 11111','TechCorp India','CMO','LinkedIn','enterprise,priority'),
-        (uid,'Rohan Mehta','rohan@startup.io','+91 98200 22222','LaunchPad','CEO','Referral','startup'),
-        (uid,'Ananya Iyer','ananya@brandco.com','+91 98300 33333','BrandCo','Marketing Head','Google','brand,mid-market'),
-        (uid,'Vikram Das','vikram@retail.in','+91 98400 44444','Retail Plus','Director','Event','retail'),
-        (uid,'Sunita Rao','sunita@fmcg.co','+91 98500 55555','FMCG Pvt Ltd','VP Marketing','Email','fmcg,priority'),
-    ])
-    db.executemany('INSERT INTO deals (user_id,title,contact_id,value,stage,probability,expected_close) VALUES (%s,%s,%s,%s,%s,%s,%s)',[
-        (uid,'TechCorp Annual Contract',1,250000,'proposal',60,'2026-04-30'),
-        (uid,'LaunchPad Brand Identity',2,85000,'negotiation',80,'2026-04-15'),
-        (uid,'BrandCo Campaign Q2',3,120000,'qualification',30,'2026-05-31'),
-        (uid,'Retail Plus Digital Push',4,65000,'closed_won',100,'2026-03-15'),
-        (uid,'FMCG Full Service',5,320000,'prospecting',15,'2026-06-30'),
-    ])
-    db.executemany('INSERT INTO activities (user_id,contact_id,type,subject,done) VALUES (%s,%s,%s,%s,%s)',[
-        (uid,1,'call','Discovery call with Priya',1),
-        (uid,2,'email','Sent proposal to Rohan',1),
-        (uid,3,'meeting','Strategy meeting with Ananya',0),
-        (uid,5,'call','Intro call with Sunita',0),
-    ])
-
-
-# ════════════════════════════════════════════════════════
-# FULL CRM — Contacts, Deals, Pipeline, Analytics
-# ════════════════════════════════════════════════════════
-
-# ── CONTACTS ─────────────────────────────────────────────
-@app.route('/crm/contacts')
-@login_required
-def crm_contacts():
-    user = get_current_user()
-    search = request.args.get('q','').strip()
-    source_filter = request.args.get('source','')
-    with get_db() as db:
-        q = 'SELECT * FROM contacts WHERE user_id=%s'; p = [user['id']]
-        if search:
-            q += ' AND (name LIKE %s OR email LIKE %s OR company LIKE %s)'
-            p += [f'%{search}%',f'%{search}%',f'%{search}%']
-        if source_filter:
-            q += ' AND source=%s'; p.append(source_filter)
-        contacts = db.execute(q+' ORDER BY created_at DESC', p).fetchall()
-    return render_template('crm_contacts.html', user=user, contacts=contacts,
-                           search=search, source_filter=source_filter, unread=unread(user['id']))
-
-@app.route('/crm/contacts/new', methods=['GET','POST'])
-@login_required
-def new_contact():
-    user = get_current_user()
-    if request.method == 'POST':
-        name    = request.form.get('name','').strip()
-        email   = request.form.get('email','').strip()
-        phone   = request.form.get('phone','').strip()
-        company = request.form.get('company','').strip()
-        title   = request.form.get('title','').strip()
-        source  = request.form.get('source','Manual')
-        tags    = request.form.get('tags','').strip()
-        notes   = request.form.get('notes','').strip()
-        if name:
-            with get_db() as db:
-                db.execute('INSERT INTO contacts (user_id,name,email,phone,company,title,source,tags,notes) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)',
-                           (user['id'],name,email,phone,company,title,source,tags,notes))
-            send_notification(user['id'], f'New contact "{name}" added to CRM.', channels=('app',))
-            flash('Contact created!','success')
-            return redirect(url_for('crm_contacts'))
-        flash('Name is required.','error')
-    return render_template('new_contact.html', user=user, unread=unread(user['id']))
-
-@app.route('/crm/contacts/<int:cid>', methods=['GET','POST'])
-@login_required
-def contact_detail(cid):
-    user = get_current_user()
-    with get_db() as db:
-        contact = db.execute('SELECT * FROM contacts WHERE id=%s AND user_id=%s',(cid,user['id'])).fetchone()
-        if not contact:
-            flash('Contact not found.','error'); return redirect(url_for('crm_contacts'))
-        if request.method == 'POST' and request.form.get('action') == 'update':
-            db.execute('UPDATE contacts SET name=%s,email=%s,phone=%s,company=%s,title=%s,source=%s,tags=%s,notes=%s WHERE id=%s AND user_id=%s',
-                       (request.form.get('name'),request.form.get('email'),request.form.get('phone'),
-                        request.form.get('company'),request.form.get('title'),request.form.get('source'),
-                        request.form.get('tags'),request.form.get('notes'),cid,user['id']))
-            flash('Contact updated!','success')
-            return redirect(url_for('contact_detail', cid=cid))
-        deals = db.execute('''SELECT d.*, c.name as contact_name FROM deals d
-                              LEFT JOIN contacts c ON d.contact_id=c.id
-                              WHERE d.user_id=%s AND d.contact_id=%s ORDER BY d.created_at DESC''',
-                           (user['id'],cid)).fetchall()
-        activities = db.execute('SELECT * FROM activities WHERE user_id=%s AND contact_id=%s ORDER BY created_at DESC',
-                                (user['id'],cid)).fetchall()
-    return render_template('contact_detail.html', user=user, contact=contact,
-                           deals=deals, activities=activities, unread=unread(user['id']))
-
-@app.route('/crm/contacts/<int:cid>/delete', methods=['POST'])
-@login_required
-def delete_contact(cid):
-    user = get_current_user()
-    with get_db() as db:
-        db.execute('DELETE FROM contacts WHERE id=%s AND user_id=%s',(cid,user['id']))
-    flash('Contact deleted.','success')
-    return redirect(url_for('crm_contacts'))
-
-@app.route('/crm/contacts/export')
-@login_required
-def export_contacts():
-    user = get_current_user()
-    with get_db() as db:
-        rows = db.execute('SELECT * FROM contacts WHERE user_id=%s ORDER BY created_at DESC',(user['id'],)).fetchall()
-    out = io.StringIO(); w = csv.writer(out)
-    w.writerow(['ID','Name','Email','Phone','Company','Title','Source','Tags','Notes','Created'])
-    for r in rows:
-        w.writerow([r['id'],r['name'],r['email'] or '',r['phone'] or '',r['company'] or '',
-                    r['title'] or '',r['source'],r['tags'] or '',r['notes'] or '',r['created_at'][:10]])
-    out.seek(0)
-    return Response(out.getvalue(), mimetype='text/csv',
-                    headers={'Content-Disposition':'attachment;filename=contacts_export.csv'})
-
-# ── DEALS / PIPELINE ─────────────────────────────────────
-STAGE_ORDER = ['prospecting','qualified','proposal','negotiation','closed-won','closed-lost']
-STAGE_LABELS = {'prospecting':'Prospecting','qualified':'Qualified','proposal':'Proposal Sent',
-                'negotiation':'Negotiation','closed-won':'Closed Won','closed-lost':'Closed Lost'}
-
-@app.route('/crm/pipeline')
-@login_required
-def crm_pipeline():
-    user = get_current_user()
-    with get_db() as db:
-        all_deals = db.execute('''SELECT d.*, c.name as contact_name FROM deals d
-                                  LEFT JOIN contacts c ON d.contact_id=c.id
-                                  WHERE d.user_id=%s ORDER BY d.created_at DESC''',(user['id'],)).fetchall()
-    stages = [(sk, STAGE_LABELS.get(sk,sk), [d for d in all_deals if d['stage']==sk])
-              for sk in STAGE_ORDER]
-    won = [d for d in all_deals if d['stage']=='closed-won']
-    closed = [d for d in all_deals if d['stage'] in ('closed-won','closed-lost')]
-    pipeline_value = sum(d['value'] for d in all_deals if d['stage'] not in ('closed-won','closed-lost'))
-    won_value = sum(d['value'] for d in won)
-    win_rate = round(len(won)/len(closed)*100) if closed else 0
-    return render_template('crm_pipeline.html', user=user, stages=stages,
-                           total_deals=len(all_deals), pipeline_value=pipeline_value,
-                           won_value=won_value, win_rate=win_rate, unread=unread(user['id']))
-
-@app.route('/crm/deals/new', methods=['POST'])
-@login_required
-def new_deal():
-    user = get_current_user()
-    title      = request.form.get('title','').strip()
-    contact_id = request.form.get('contact_id') or None
-    value      = float(request.form.get('value',0) or 0)
-    stage      = request.form.get('stage','prospecting')
-    redirect_to= request.form.get('redirect', url_for('crm_pipeline'))
-    if title:
-        with get_db() as db:
-            db.execute('INSERT INTO deals (user_id,title,contact_id,value,stage) VALUES (%s,%s,%s,%s,%s)',
-                       (user['id'],title,contact_id,value,stage))
-        flash('Deal added!','success')
-    return redirect(redirect_to)
-
-@app.route('/crm/deals/<int:did>/move', methods=['POST'])
-@login_required
-def move_deal(did):
-    user = get_current_user()
-    stage = request.form.get('stage','prospecting')
-    redirect_to = request.form.get('redirect', url_for('crm_pipeline'))
-    prob_map = {'prospecting':10,'qualified':25,'proposal':50,'negotiation':75,'closed-won':100,'closed-lost':0}
-    with get_db() as db:
-        db.execute('UPDATE deals SET stage=%s, probability=%s WHERE id=%s AND user_id=%s',
-                   (stage, prob_map.get(stage,10), did, user['id']))
-    flash('Deal updated!','success')
-    return redirect(redirect_to)
-
-@app.route('/crm/deals/<int:did>/delete', methods=['POST'])
-@login_required
-def delete_deal(did):
-    user = get_current_user()
-    redirect_to = request.form.get('redirect', url_for('crm_pipeline'))
-    with get_db() as db:
-        db.execute('DELETE FROM deals WHERE id=%s AND user_id=%s',(did,user['id']))
-    flash('Deal deleted.','success')
-    return redirect(redirect_to)
-
-# ── ACTIVITIES ────────────────────────────────────────────
-@app.route('/crm/activities')
-@login_required
-def crm_activities():
-    user = get_current_user()
-    with get_db() as db:
-        activities = db.execute('''SELECT a.*, c.name as contact_name FROM activities a
-                                   LEFT JOIN contacts c ON a.contact_id=c.id
-                                   WHERE a.user_id=%s ORDER BY a.created_at DESC''',(user['id'],)).fetchall()
-        all_tasks  = db.execute('SELECT * FROM tasks WHERE user_id=%s ORDER BY done ASC, due_date ASC',(user['id'],)).fetchall()
-        contacts   = db.execute('SELECT id,name FROM contacts WHERE user_id=%s ORDER BY name',(user['id'],)).fetchall()
-    return render_template('crm_activities.html', user=user, activities=activities,
-                           all_tasks=all_tasks, contacts=contacts,
-                           tasks=sum(1 for t in all_tasks if not t['done']),
-                           unread=unread(user['id']))
-
-@app.route('/crm/activities/new', methods=['POST'])
-@login_required
-def new_activity():
-    user = get_current_user()
-    atype      = request.form.get('type','Call')
-    subject    = request.form.get('subject','').strip()
-    notes      = request.form.get('notes','').strip()
-    contact_id = request.form.get('contact_id') or None
-    deal_id    = request.form.get('deal_id') or None
-    redirect_to= request.form.get('redirect', url_for('crm_activities'))
-    if subject:
-        with get_db() as db:
-            db.execute('INSERT INTO activities (user_id,contact_id,deal_id,type,subject,notes) VALUES (%s,%s,%s,%s,%s,%s)',
-                       (user['id'],contact_id,deal_id,atype,subject,notes))
-        flash('Activity logged!','success')
-    return redirect(redirect_to)
-
-@app.route('/crm/activities/<int:aid>/done', methods=['POST'])
-@login_required
-def mark_activity_done(aid):
-    user = get_current_user()
-    redirect_to = request.form.get('redirect', url_for('crm_activities'))
-    with get_db() as db:
-        db.execute('UPDATE activities SET done=1 WHERE id=%s AND user_id=%s',(aid,user['id']))
-    flash('Activity marked done.','success')
-    return redirect(redirect_to)
-
-# ── TASKS ─────────────────────────────────────────────────
-@app.route('/crm/tasks')
-@login_required
-def crm_tasks():
-    return redirect(url_for('crm_activities'))
-
-@app.route('/crm/tasks/new', methods=['POST'])
-@login_required
-def new_task():
-    user = get_current_user()
-    title    = request.form.get('title','').strip()
-    priority = request.form.get('priority','medium')
-    due_date = request.form.get('due_date','')
-    redirect_to = request.form.get('redirect', url_for('crm_activities'))
-    if title:
-        with get_db() as db:
-            db.execute('INSERT INTO tasks (user_id,title,priority,due_date) VALUES (%s,%s,%s,%s)',
-                       (user['id'],title,priority,due_date or None))
-        flash('Task added!','success')
-    return redirect(redirect_to)
-
-@app.route('/crm/tasks/<int:tid>/done', methods=['POST'])
-@login_required
-def mark_task_done(tid):
-    user = get_current_user()
-    redirect_to = request.form.get('redirect', url_for('crm_activities'))
-    with get_db() as db:
-        cur = db.execute('SELECT done FROM tasks WHERE id=%s AND user_id=%s',(tid,user['id'])).fetchone()
-        if cur:
-            db.execute('UPDATE tasks SET done=%s WHERE id=%s AND user_id=%s',(0 if cur['done'] else 1, tid, user['id']))
-    return redirect(redirect_to)
-
-# ── CRM ANALYTICS ─────────────────────────────────────────
-@app.route('/crm/analytics')
-@login_required
-def crm_analytics():
-    user = get_current_user()
-    if not user: session.clear(); return redirect(url_for('login'))
-    with get_db() as db:
-        contacts_total = db.execute('SELECT COUNT(*) FROM contacts WHERE user_id=%s',(user['id'],)).fetchone()[0]
-        deals_all      = db.execute('SELECT * FROM deals WHERE user_id=%s',(user['id'],)).fetchall()
-        activities_all = db.execute('SELECT * FROM activities WHERE user_id=%s',(user['id'],)).fetchall()
-        tasks_open     = db.execute('SELECT COUNT(*) FROM tasks WHERE user_id=%s AND done=0',(user['id'],)).fetchone()[0]
-        leads_total    = db.execute('SELECT COUNT(*) FROM leads WHERE user_id=%s',(user['id'],)).fetchone()[0]
-        src_rows = db.execute('SELECT source,COUNT(*) as cnt FROM contacts WHERE user_id=%s GROUP BY source ORDER BY cnt DESC',(user['id'],)).fetchall()
-        stage_rows = db.execute('SELECT stage,COUNT(*) as cnt,SUM(value) as val FROM deals WHERE user_id=%s GROUP BY stage',(user['id'],)).fetchall()
-        act_rows = db.execute('SELECT type,COUNT(*) as cnt FROM activities WHERE user_id=%s GROUP BY type',(user['id'],)).fetchall()
-        from datetime import date
-        month_start = date.today().replace(day=1).isoformat()
-        acts_month = db.execute('SELECT COUNT(*) FROM activities WHERE user_id=%s AND created_at >= %s',(user['id'],month_start)).fetchone()[0]
-
-    won   = [d for d in deals_all if d['stage']=='closed-won']
-    closed= [d for d in deals_all if d['stage'] in ('closed-won','closed-lost')]
-    active= [d for d in deals_all if d['stage'] not in ('closed-won','closed-lost')]
-    proposals = len([d for d in deals_all if d['stage'] in ('proposal','negotiation','closed-won','closed-lost')])
-    pipeline_value = sum(d['value'] for d in active)
-    won_value      = sum(d['value'] for d in won)
-    win_rate       = round(len(won)/len(closed)*100) if closed else 0
-    avg_deal       = round(sum(d['value'] for d in deals_all)/len(deals_all)) if deals_all else 0
-
-    stage_map = {r['stage']:r for r in stage_rows}
-    ordered_stages = [STAGE_LABELS[s] for s in STAGE_ORDER]
-    ordered_counts = [stage_map.get(s,{}).get('cnt',0) for s in STAGE_ORDER]
-    ordered_values = [float(stage_map.get(s,{}).get('val') or 0) for s in STAGE_ORDER]
-
-    chart_data = {
-        'src_labels':[r['source'] for r in src_rows],
-        'src_vals':[r['cnt'] for r in src_rows],
-        'stage_labels':ordered_stages,
-        'stage_counts':ordered_counts,
-        'stage_values':ordered_values,
-        'act_labels':[r['type'] for r in act_rows],
-        'act_vals':[r['cnt'] for r in act_rows],
-    }
-
-    # Smart insights
-    insights = []
-    if win_rate < 20 and len(closed) >= 3:
-        insights.append({'type':'danger','title':'Low win rate','desc':f'Your win rate is {win_rate}%. Review your proposal and negotiation stages for drop-off points.'})
-    if win_rate >= 60:
-        insights.append({'type':'success','title':'Strong win rate','desc':f'Excellent! {win_rate}% win rate — focus on filling the top of your pipeline with more qualified leads.'})
-    if tasks_open > 10:
-        insights.append({'type':'warn','title':f'{tasks_open} open tasks','desc':'You have many overdue or pending tasks. Consider clearing low-priority ones to focus on high-value deals.'})
-    if contacts_total > 0 and len(deals_all) == 0:
-        insights.append({'type':'warn','title':'Contacts without deals','desc':f'You have {contacts_total} contacts but no deals created. Start converting contacts into pipeline opportunities.'})
-    top_stage = max(stage_rows, key=lambda r: r['cnt'], default=None)
-    if top_stage and top_stage['stage'] == 'prospecting' and top_stage['cnt'] > 5:
-        insights.append({'type':'warn','title':'Pipeline stuck in prospecting','desc':f'{top_stage["cnt"]} deals in prospecting. Focus on qualifying or disqualifying these to keep pipeline healthy.'})
-
-    stats = {
-        'contacts':contacts_total, 'deals':len(deals_all), 'pipeline':pipeline_value,
-        'won':won_value, 'win_rate':win_rate, 'avg_deal':avg_deal,
-        'activities_month':acts_month, 'open_tasks':tasks_open,
-        'leads_total':leads_total, 'proposals':proposals, 'won_count':len(won),
-    }
-    return render_template('crm_analytics.html', user=user, stats=stats,
-                           chart_data=json.dumps(chart_data), insights=insights,
-                           unread=unread(user['id']))
-
-# ════════════════════════════════════════════════════════
-# CRM — CONTACTS
-# ════════════════════════════════════════════════════════
 
 CONTACT_STAGES = ['lead','prospect','qualified','customer','churned']
 DEAL_STAGES    = ['prospecting','qualification','proposal','negotiation','closed_won','closed_lost']
@@ -1748,7 +990,6 @@ def crm():
 @login_required
 def crm_dashboard():
     user = get_current_user()
-    if not user: session.clear(); return redirect(url_for('login'))
     with get_db() as db:
         total_contacts  = db.execute('SELECT COUNT(*) FROM contacts WHERE user_id=%s',(user['id'],)).fetchone()[0]
         total_deals     = db.execute('SELECT COUNT(*) FROM deals WHERE user_id=%s',(user['id'],)).fetchone()[0]
@@ -1777,7 +1018,6 @@ def crm_dashboard():
 @login_required
 def crm_contacts():
     user = get_current_user()
-    if not user: session.clear(); return redirect(url_for('login'))
     stage_f = request.args.get('stage','')
     source_f= request.args.get('source','')
     q       = request.args.get('q','').strip()
@@ -1867,7 +1107,6 @@ def crm_export_contacts():
 @login_required
 def crm_deals():
     user = get_current_user()
-    if not user: session.clear(); return redirect(url_for('login'))
     with get_db() as db:
         deals = db.execute('''SELECT d.*,c.name as contact_name FROM deals d
                               LEFT JOIN contacts c ON d.contact_id=c.id
@@ -2007,11 +1246,10 @@ def crm_delete_task(tid):
 @login_required
 def crm_analytics():
     user = get_current_user()
-    if not user: session.clear(); return redirect(url_for('login'))
     with get_db() as db:
         stage_data  = db.execute('SELECT stage,COUNT(*) as cnt,SUM(value) as val FROM deals WHERE user_id=%s GROUP BY stage',(user['id'],)).fetchall()
         source_data = db.execute('SELECT source,COUNT(*) as cnt FROM contacts WHERE user_id=%s GROUP BY source ORDER BY cnt DESC',(user['id'],)).fetchall()
-        monthly     = db.execute("""SELECT TO_CHAR(created_at, 'YYYY-MM') as mo, COUNT(*) as cnt
+        monthly     = db.execute("""SELECT TO_CHAR(created_at,'YYYY-MM') as mo, COUNT(*) as cnt
                                     FROM contacts WHERE user_id=%s GROUP BY mo ORDER BY mo DESC LIMIT 6""",(user['id'],)).fetchall()
         top_deals   = db.execute("SELECT * FROM deals WHERE user_id=%s AND stage='closed_won' ORDER BY value DESC LIMIT 5",(user['id'],)).fetchall()
         won         = db.execute("SELECT COUNT(*),SUM(value) FROM deals WHERE user_id=%s AND stage='closed_won'",(user['id'],)).fetchone()
@@ -2083,3 +1321,270 @@ def _seed_crm_demo(db, uid):
         (uid,'Call FinEdge re: SEO scope','Contact: Arjun Nair','2026-03-26','low','open'),
     ]
     db.executemany('INSERT INTO tasks (user_id,title,related_to,due_date,priority,status) VALUES (%s,%s,%s,%s,%s,%s)', tasks_data)
+
+# ════════════════════════════════════════════════════════
+# GOOGLE OAUTH
+# ════════════════════════════════════════════════════════
+import urllib.request, urllib.parse, urllib.error
+
+GOOGLE_CLIENT_ID     = os.environ.get('GOOGLE_CLIENT_ID', '')
+GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '')
+GOOGLE_REDIRECT_URI  = os.environ.get('GOOGLE_REDIRECT_URI',
+    'https://market-mosaic-1.onrender.com/auth/google/callback')
+
+@app.route('/auth/google')
+def google_auth():
+    if not GOOGLE_CLIENT_ID:
+        flash('Google login is not configured yet.', 'error')
+        return redirect(url_for('login'))
+    state = secrets.token_urlsafe(16)
+    session['oauth_state'] = state
+    params = urllib.parse.urlencode({
+        'client_id': GOOGLE_CLIENT_ID,
+        'redirect_uri': GOOGLE_REDIRECT_URI,
+        'response_type': 'code',
+        'scope': 'openid email profile',
+        'state': state,
+        'access_type': 'offline',
+    })
+    return redirect(f'https://accounts.google.com/o/oauth2/v2/auth%s{params}')
+
+@app.route('/auth/google/callback')
+def google_callback():
+    if request.args.get('state') != session.pop('oauth_state', None):
+        flash('OAuth state mismatch. Please try again.', 'error')
+        return redirect(url_for('login'))
+    code = request.args.get('code')
+    if not code:
+        flash('Google login was cancelled.', 'warning')
+        return redirect(url_for('login'))
+    try:
+        # Exchange code for token
+        token_data = urllib.parse.urlencode({
+            'code': code, 'client_id': GOOGLE_CLIENT_ID,
+            'client_secret': GOOGLE_CLIENT_SECRET,
+            'redirect_uri': GOOGLE_REDIRECT_URI,
+            'grant_type': 'authorization_code',
+        }).encode()
+        req = urllib.request.Request(
+            'https://oauth2.googleapis.com/token', data=token_data,
+            headers={'Content-Type': 'application/x-www-form-urlencoded'})
+        with urllib.request.urlopen(req) as r:
+            token_resp = json.loads(r.read())
+        access_token = token_resp['access_token']
+        # Get user info
+        info_req = urllib.request.Request(
+            'https://www.googleapis.com/oauth2/v3/userinfo',
+            headers={'Authorization': f'Bearer {access_token}'})
+        with urllib.request.urlopen(info_req) as r:
+            info = json.loads(r.read())
+        email = info['email'].lower()
+        name  = info.get('name', email.split('@')[0].title())
+        with get_db() as db:
+            user = db.execute('SELECT * FROM users WHERE email=%s', (email,)).fetchone()
+            if not user:
+                api_key = 'mm_' + secrets.token_hex(24)
+                db.execute('INSERT INTO users (name,company,email,password,api_key) VALUES (%s,%s,%s,%s,%s)',
+                           (name, '', email, generate_password_hash(secrets.token_hex(16)), api_key))
+                user = db.execute('SELECT * FROM users WHERE email=%s', (email,)).fetchone()
+                _seed_demo(db, user['id'])
+                _seed_crm_demo(db, user['id'])
+        session['user_id'] = user['id']
+        session['user_name'] = user['name']
+        flash(f'Welcome, {user["name"]}!', 'success')
+        return redirect(url_for('dashboard'))
+    except Exception as e:
+        app.logger.error(f'Google OAuth error: {e}')
+        flash(f'Google login failed. Please try again.', 'error')
+        return redirect(url_for('login'))
+
+
+# ════════════════════════════════════════════════════════
+# CLIENT PORTAL
+# ════════════════════════════════════════════════════════
+def client_required(f):
+    @wraps(f)
+    def dec(*a, **kw):
+        if 'client_id' not in session:
+            return redirect(url_for('client_login'))
+        return f(*a, **kw)
+    return dec
+
+def get_client():
+    if 'client_id' in session:
+        with get_db() as db:
+            return db.execute('SELECT * FROM clients WHERE id=%s', (session['client_id'],)).fetchone()
+    return None
+
+# clients table now in init_db()
+
+@app.route('/client/login', methods=['GET', 'POST'])
+def client_login():
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip().lower()
+        pwd   = request.form.get('password', '')
+        with get_db() as db:
+            c = db.execute('SELECT * FROM clients WHERE email=%s', (email,)).fetchone()
+        if c and check_password_hash(c['password'], pwd):
+            session['client_id'] = c['id']
+            return redirect(url_for('client_dashboard'))
+        flash('Invalid email or password.', 'error')
+    return render_template('client_login.html', user=None)
+
+@app.route('/client/logout')
+def client_logout():
+    session.pop('client_id', None)
+    return redirect(url_for('client_login'))
+
+@app.route('/client/dashboard')
+@client_required
+def client_dashboard():
+    c = get_client()
+    with get_db() as db:
+        aid = c['agency_user_id']
+        campaigns = db.execute('SELECT * FROM campaigns WHERE user_id=%s', (aid,)).fetchall()
+        leads     = db.execute('SELECT * FROM leads WHERE user_id=%s', (aid,)).fetchall()
+        deals     = db.execute('SELECT * FROM deals WHERE user_id=%s', (aid,)).fetchall()
+    return render_template('client_dashboard.html', client=dict(c),
+        campaigns=campaigns, leads=leads, deals=deals,
+        now=datetime.now().strftime('%Y-%m-%d'))
+
+@app.route('/dashboard/clients')
+@login_required
+def client_list():
+    user = get_current_user()
+    with get_db() as db:
+        clients = db.execute('SELECT * FROM clients WHERE agency_user_id=%s ORDER BY created_at DESC', (user['id'],)).fetchall()
+    return render_template('client_list.html', user=user, clients=clients, unread=unread(user['id']))
+
+@app.route('/dashboard/clients/new', methods=['GET', 'POST'])
+@login_required
+def new_client():
+    user = get_current_user()
+    if request.method == 'POST':
+        email   = request.form.get('email', '').strip().lower()
+        name    = request.form.get('name', '').strip()
+        company = request.form.get('company', '').strip()
+        pwd     = request.form.get('password', '')
+        try:
+            with get_db() as db:
+                db.execute('INSERT INTO clients (agency_user_id,name,company,email,password) VALUES (%s,%s,%s,%s,%s)',
+                           (user['id'], name, company, email, generate_password_hash(pwd)))
+            flash(f'Client portal created for {name}. Login URL: /client/login', 'success')
+            return redirect(url_for('client_list'))
+        except Exception:
+            flash('That email is already registered as a client.', 'error')
+    return render_template('new_client.html', user=user, unread=unread(user['id']))
+
+@app.route('/dashboard/clients/<int:cid>/delete', methods=['POST'])
+@login_required
+def delete_client(cid):
+    user = get_current_user()
+    with get_db() as db:
+        db.execute('DELETE FROM clients WHERE id=%s AND agency_user_id=%s', (cid, user['id']))
+    flash('Client removed.', 'success')
+    return redirect(url_for('client_list'))
+
+
+# ════════════════════════════════════════════════════════
+# EMAIL CAMPAIGNS (via Resend.com — free 3000/month)
+# ════════════════════════════════════════════════════════
+RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
+FROM_EMAIL     = os.environ.get('FROM_EMAIL', 'onboarding@resend.dev')
+
+def send_resend_email(to_email, subject, html_body):
+    """Send email via Resend API. Returns (success, error_msg)."""
+    if not RESEND_API_KEY:
+        return False, 'RESEND_API_KEY not set'
+    try:
+        payload = json.dumps({
+            'from': f'Market Mosaic <{FROM_EMAIL}>',
+            'to': [to_email],
+            'subject': subject,
+            'html': html_body,
+        }).encode()
+        req = urllib.request.Request(
+            'https://api.resend.com/emails',
+            data=payload,
+            headers={
+                'Authorization': f'Bearer {RESEND_API_KEY}',
+                'Content-Type': 'application/json',
+            })
+        with urllib.request.urlopen(req) as r:
+            return True, None
+    except Exception as e:
+        return False, str(e)
+
+# email tables now in init_db()
+
+@app.route('/dashboard/email-campaigns')
+@login_required
+def email_campaigns():
+    user = get_current_user()
+    with get_db() as db:
+        templates = db.execute('SELECT * FROM email_templates WHERE user_id=%s ORDER BY created_at DESC', (user['id'],)).fetchall()
+        sent      = db.execute('SELECT * FROM sent_emails WHERE user_id=%s ORDER BY sent_at DESC LIMIT 50', (user['id'],)).fetchall()
+        contacts  = db.execute('SELECT name,email FROM leads WHERE user_id=%s UNION SELECT name,email FROM contacts WHERE user_id=%s', (user['id'], user['id'])).fetchall()
+    return render_template('email_campaigns.html', user=user,
+        templates=templates, sent=sent, contacts=contacts,
+        resend_ok=bool(RESEND_API_KEY), unread=unread(user['id']))
+
+@app.route('/dashboard/email-campaigns/template/new', methods=['GET', 'POST'])
+@login_required
+def new_email_template():
+    user = get_current_user()
+    if request.method == 'POST':
+        with get_db() as db:
+            db.execute('INSERT INTO email_templates (user_id,name,subject,body_html) VALUES (%s,%s,%s,%s)',
+                       (user['id'], request.form['name'], request.form['subject'], request.form['body_html']))
+        flash('Template saved.', 'success')
+        return redirect(url_for('email_campaigns'))
+    return render_template('new_email_template.html', user=user, unread=unread(user['id']))
+
+@app.route('/dashboard/email-campaigns/send', methods=['POST'])
+@login_required
+def send_email_campaign():
+    user     = get_current_user()
+    tid      = request.form.get('template_id')
+    to_email = request.form.get('to_email', '').strip()
+    to_name  = request.form.get('to_name', '').strip()
+    with get_db() as db:
+        tmpl = db.execute('SELECT * FROM email_templates WHERE id=%s AND user_id=%s', (tid, user['id'])).fetchone()
+    if not tmpl or not to_email:
+        flash('Template and recipient email are required.', 'error')
+        return redirect(url_for('email_campaigns'))
+    subject  = tmpl['subject'].replace('{{name}}', to_name)
+    body     = tmpl['body_html'].replace('{{name}}', to_name)
+    if RESEND_API_KEY:
+        ok, err = send_resend_email(to_email, subject, body)
+        status = 'sent' if ok else 'failed'
+    else:
+        ok, err, status = True, None, 'simulated'
+    with get_db() as db:
+        db.execute('INSERT INTO sent_emails (user_id,to_email,to_name,subject,template_name,status,error) VALUES (%s,%s,%s,%s,%s,%s,%s)',
+                   (user['id'], to_email, to_name, subject, tmpl['name'], status, err or ''))
+    if status == 'sent':
+        flash(f'Email sent to {to_email}.', 'success')
+    elif status == 'simulated':
+        flash(f'Email simulated (add RESEND_API_KEY to send real emails).', 'info')
+    else:
+        flash(f'Send failed: {err}', 'error')
+    return redirect(url_for('email_campaigns'))
+
+def seed_email_templates(uid):
+    """Seed 4 starter templates for new users."""
+    templates = [
+        ('Welcome Email', 'Welcome to Market Mosaic, {{name}}!',
+         '<h2>Welcome aboard! 🎉</h2><p>Hi {{name}},</p><p>We\'re thrilled to have you. Your growth journey starts now.</p>'),
+        ('Monthly Report', 'Your Monthly Marketing Report',
+         '<h2>Monthly Highlights</h2><p>Hi {{name}},</p><p>Here\'s a summary of your campaign performance this month.</p>'),
+        ('Proposal Follow-up', 'Following up on your proposal',
+         '<p>Hi {{name}},</p><p>Just checking in on the proposal we sent. Happy to answer any questions!</p>'),
+        ('Campaign Launch', '🚀 Your campaign is live!',
+         '<p>Hi {{name}},</p><p>Your campaign just went live. We\'ll update you with results in 48 hours.</p>'),
+    ]
+    with get_db() as db:
+        for name, subj, body in templates:
+            db.execute('INSERT INTO email_templates (user_id,name,subject,body_html) VALUES (%s,%s,%s,%s)',
+                       (uid, name, subj, body))
+
