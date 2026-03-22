@@ -1,0 +1,48 @@
+{% extends "dash_base.html" %}
+{% block title %}{{ 'Edit' if contact else 'New' }} Contact — Market Mosaic CRM{% endblock %}
+{% block dash_content %}
+<div class="dash-header">
+  <h1 class="dash-title">{{ 'Edit Contact' if contact else 'New Contact' }}</h1>
+</div>
+<div class="dash-card" style="max-width:640px">
+  <form method="POST">
+    <div class="form-row">
+      <div class="form-group"><label>Full Name *</label><input type="text" name="name" value="{{ contact.name if contact else '' }}" required/></div>
+      <div class="form-group"><label>Company</label><input type="text" name="company" value="{{ contact.company if contact else '' }}"/></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Email</label><input type="email" name="email" value="{{ contact.email if contact else '' }}"/></div>
+      <div class="form-group"><label>Phone</label><input type="text" name="phone" value="{{ contact.phone if contact else '' }}"/></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Job Title</label><input type="text" name="title" value="{{ contact.title if contact else '' }}"/></div>
+      <div class="form-group"><label>Owner</label><input type="text" name="owner" value="{{ contact.owner if contact else '' }}" placeholder="Assigned to"/></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Source</label>
+        <select name="source">
+          {% for s in ['manual','LinkedIn','Google','Referral','Email','Event','Instagram','Cold Outreach','Organic','Other'] %}
+          <option {% if contact and contact.source==s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group"><label>Stage</label>
+        <select name="stage">
+          {% for s in stages %}
+          <option value="{{ s }}" {% if contact and contact.stage==s %}selected{% endif %}>{{ s|title }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    {% if contact %}
+    <div class="form-group"><label>Last Contacted</label><input type="date" name="last_contacted" value="{{ contact.last_contacted[:10] if contact.last_contacted else '' }}"/></div>
+    {% endif %}
+    <div class="form-group"><label>Tags (comma separated)</label><input type="text" name="tags" value="{{ contact.tags if contact else '' }}" placeholder="marketing, enterprise, warm"/></div>
+    <div class="form-group"><label>Notes</label><textarea name="notes">{{ contact.notes if contact else '' }}</textarea></div>
+    <div style="display:flex;gap:1rem;margin-top:.5rem">
+      <button type="submit" class="btn btn-primary">{{ 'Save Changes' if contact else 'Add Contact' }}</button>
+      <a href="{{ url_for('crm_contacts') }}" class="btn btn-ghost">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

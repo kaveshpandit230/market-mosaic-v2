@@ -1,0 +1,36 @@
+{% extends "dash_base.html" %}
+{% block title %}{{ 'Edit' if deal else 'New' }} Deal — Market Mosaic CRM{% endblock %}
+{% block dash_content %}
+<div class="dash-header"><h1 class="dash-title">{{ 'Edit Deal' if deal else 'New Deal' }}</h1></div>
+<div class="dash-card" style="max-width:600px">
+  <form method="POST">
+    <div class="form-group"><label>Deal Title *</label><input type="text" name="title" value="{{ deal.title if deal else '' }}" required placeholder="e.g. TechCorp Annual Contract"/></div>
+    <div class="form-row">
+      <div class="form-group"><label>Contact</label>
+        <select name="contact_id">
+          <option value="">No contact</option>
+          {% for c in contacts %}<option value="{{ c.id }}" {{ 'selected' if deal and deal.contact_id==c.id }}>{{ c.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group"><label>Owner</label><input type="text" name="owner" value="{{ deal.owner if deal else '' }}" placeholder="Assigned to"/></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Deal Value (Rs)</label><input type="number" name="value" value="{{ deal.value if deal else '' }}" min="0" step="1000" placeholder="0"/></div>
+      <div class="form-group"><label>Probability (%)</label><input type="number" name="probability" value="{{ deal.probability if deal else 10 }}" min="0" max="100" placeholder="10"/></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Stage</label>
+        <select name="stage">
+          {% for s in stages %}<option value="{{ s }}" {{ 'selected' if deal and deal.stage==s }}>{{ s|replace('_',' ')|title }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group"><label>Expected Close Date</label><input type="date" name="close_date" value="{{ deal.close_date if deal else '' }}"/></div>
+    </div>
+    <div class="form-group"><label>Notes</label><textarea name="notes">{{ deal.notes if deal else '' }}</textarea></div>
+    <div style="display:flex;gap:1rem;margin-top:.5rem">
+      <button type="submit" class="btn btn-primary">{{ 'Save Changes' if deal else 'Create Deal' }}</button>
+      <a href="{{ url_for('crm_deals') }}" class="btn btn-ghost">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

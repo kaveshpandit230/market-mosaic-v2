@@ -1,0 +1,44 @@
+{% extends "dash_base.html" %}
+{% block title %}Campaigns — Market Mosaic{% endblock %}
+{% block dash_content %}
+<div class="dash-header">
+  <h1 class="dash-title">Campaigns</h1>
+  <p class="dash-sub">Manage and track all your marketing campaigns.</p>
+</div>
+<div class="page-actions">
+  <a href="{{ url_for('new_campaign') }}" class="btn btn-primary btn-sm">+ New Campaign</a>
+  <a href="{{ url_for('export_campaigns') }}" class="btn btn-ghost btn-sm">Export CSV</a>
+  <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-left:auto">
+    {% for s in ['','active','paused','draft','completed'] %}
+    <a href="{{ url_for('campaigns', status=s) }}" class="btn btn-ghost btn-sm" style="{{ 'background:var(--ink);color:var(--cream)' if status_filter==s else '' }}">{{ s|title if s else 'All' }}</a>
+    {% endfor %}
+  </div>
+</div>
+<div class="full-table"><div class="dash-card">
+<table>
+<thead><tr><th>Campaign</th><th>Channel</th><th>Status</th><th>Budget</th><th>Spent</th><th>Clicks</th><th>CTR</th><th>Conv.</th><th>Actions</th></tr></thead>
+<tbody>
+{% for c in campaigns %}
+<tr>
+  <td style="font-weight:500;color:var(--ink)">{{ c.name }}</td>
+  <td>{{ c.channel }}</td>
+  <td><span class="badge badge-{{ c.status }}">{{ c.status }}</span></td>
+  <td>Rs{{ "{:,.0f}".format(c.budget) }}</td>
+  <td>Rs{{ "{:,.0f}".format(c.spent) }}</td>
+  <td>{{ "{:,}".format(c.clicks) }}</td>
+  <td>{% if c.impressions > 0 %}{{ "%.2f"|format(c.clicks/c.impressions*100) }}%{% else %}--{% endif %}</td>
+  <td>{{ c.conversions }}</td>
+  <td><div style="display:flex;gap:.4rem">
+    <a href="{{ url_for('edit_campaign', cid=c.id) }}" class="btn btn-ghost btn-sm">Edit</a>
+    <form method="POST" action="{{ url_for('delete_campaign', cid=c.id) }}" style="margin:0" onsubmit="return confirm('Delete this campaign?')">
+      <button type="submit" class="btn btn-danger btn-sm">X</button>
+    </form>
+  </div></td>
+</tr>
+{% else %}
+<tr><td colspan="9" style="text-align:center;padding:3rem;color:var(--stone)">No campaigns yet. <a href="{{ url_for('new_campaign') }}" style="color:var(--accent)">Create your first</a></td></tr>
+{% endfor %}
+</tbody>
+</table>
+</div></div>
+{% endblock %}

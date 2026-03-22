@@ -1,0 +1,78 @@
+{% extends "dash_base.html" %}
+{% block title %}Overview — Market Mosaic Dashboard{% endblock %}
+{% block dash_content %}
+<div class="dash-header">
+  <h1 class="dash-title">Good {% if now_hour < 12 %}morning{% elif now_hour < 17 %}afternoon{% else %}evening{% endif %}, {{ user.name.split()[0] }}.</h1>
+  <p class="dash-sub">Here's what's happening with your marketing today.</p>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-card-label">Total Campaigns</div>
+    <div class="stat-card-value">{{ stats.total_campaigns }}</div>
+    <div class="stat-card-sub">{{ stats.active_campaigns }} active</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card-label">Total Leads</div>
+    <div class="stat-card-value">{{ stats.total_leads }}</div>
+    <div class="stat-card-sub">Across all campaigns</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card-label">Total Spend</div>
+    <div class="stat-card-value">₹{{ "{:,.0f}".format(stats.total_spend) }}</div>
+    <div class="stat-card-sub">Across all campaigns</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card-label">Total Clicks</div>
+    <div class="stat-card-value">{{ "{:,}".format(stats.total_clicks) }}</div>
+    <div class="stat-card-sub">{{ "{:,}".format(stats.total_impressions) }} impressions</div>
+  </div>
+</div>
+
+<div class="dash-grid">
+  <div class="dash-card">
+    <div class="dash-card-header">
+      <span class="dash-card-title">Recent Campaigns</span>
+      <a href="{{ url_for('campaigns') }}" class="btn btn-ghost btn-sm">View All</a>
+    </div>
+    <table>
+      <thead><tr><th>Name</th><th>Channel</th><th>Status</th><th>Spent</th></tr></thead>
+      <tbody>
+        {% for c in campaigns %}
+        <tr>
+          <td>{{ c.name }}</td>
+          <td>{{ c.channel }}</td>
+          <td><span class="badge badge-{{ c.status }}">{{ c.status }}</span></td>
+          <td>₹{{ "{:,.0f}".format(c.spent) }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" style="text-align:center;color:var(--stone);padding:2rem">No campaigns yet. <a href="{{ url_for('new_campaign') }}" style="color:var(--accent)">Create one →</a></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="dash-card">
+    <div class="dash-card-header">
+      <span class="dash-card-title">Recent Leads</span>
+      <a href="{{ url_for('leads') }}" class="btn btn-ghost btn-sm">View All</a>
+    </div>
+    <table>
+      <thead><tr><th>Name</th><th>Company</th><th>Source</th><th>Status</th></tr></thead>
+      <tbody>
+        {% for l in leads %}
+        <tr>
+          <td>{{ l.name }}</td>
+          <td>{{ l.company or '—' }}</td>
+          <td>{{ l.source }}</td>
+          <td><span class="badge badge-{{ l.status }}">{{ l.status }}</span></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" style="text-align:center;color:var(--stone);padding:2rem">No leads yet. <a href="{{ url_for('new_lead') }}" style="color:var(--accent)">Add one →</a></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}{% endblock %}

@@ -1,0 +1,34 @@
+{% extends "dash_base.html" %}
+{% block title %}Add Client — Market Mosaic{% endblock %}
+{% block content %}
+<div class="dash-header">
+  <h1 class="dash-title">Add Client Portal Account</h1>
+  <p class="dash-sub">Create a read-only login for your client. They'll see your campaigns and leads.</p>
+</div>
+<div class="dash-card" style="max-width:520px">
+  <form method="POST">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+      <div style="margin-bottom:1rem">
+        <label style="display:block;font-size:.65rem;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:.4rem">Client Name</label>
+        <input name="name" required placeholder="Kiran Pandit" style="width:100%;padding:.75rem 1rem;border:1px solid var(--sand);background:var(--warm);font-family:var(--font-b);font-size:.875rem;color:var(--ink);outline:none">
+      </div>
+      <div style="margin-bottom:1rem">
+        <label style="display:block;font-size:.65rem;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:.4rem">Company</label>
+        <input name="company" required placeholder="Market Mosaic" style="width:100%;padding:.75rem 1rem;border:1px solid var(--sand);background:var(--warm);font-family:var(--font-b);font-size:.875rem;color:var(--ink);outline:none">
+      </div>
+    </div>
+    <div style="margin-bottom:1rem">
+      <label style="display:block;font-size:.65rem;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:.4rem">Login Email</label>
+      <input type="email" name="email" required placeholder="client@company.com" style="width:100%;padding:.75rem 1rem;border:1px solid var(--sand);background:var(--warm);font-family:var(--font-b);font-size:.875rem;color:var(--ink);outline:none">
+    </div>
+    <div style="margin-bottom:1.5rem">
+      <label style="display:block;font-size:.65rem;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:.4rem">Temporary Password</label>
+      <input type="password" name="password" required placeholder="Share this with the client" style="width:100%;padding:.75rem 1rem;border:1px solid var(--sand);background:var(--warm);font-family:var(--font-b);font-size:.875rem;color:var(--ink);outline:none">
+    </div>
+    <div style="display:flex;gap:1rem">
+      <button type="submit" style="padding:.75rem 1.5rem;background:var(--ink);color:var(--cream);border:none;font-family:var(--font-b);font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer">Create Portal</button>
+      <a href="{{ url_for('client_list') }}" style="padding:.75rem 1.5rem;border:1px solid var(--sand);color:var(--ink-soft);text-decoration:none;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}Pricing — Market Mosaic{% endblock %}
+{% block extra_head %}
+<style>
+.pricing-hero{padding:9rem 4rem 5rem;text-align:center}
+.pricing-hero .section-heading{max-width:20ch;margin:0 auto 1rem}
+.pricing-hero p{color:var(--ink-soft);max-width:48ch;margin:0 auto 3.5rem}
+.pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem;max-width:1100px;margin:0 auto;padding:0 4rem 6rem}
+.pricing-card{background:var(--warm);border:1px solid var(--sand);padding:2.5rem;position:relative;transition:box-shadow .3s}
+.pricing-card:hover{box-shadow:0 16px 48px rgba(0,0,0,.07)}
+.pricing-card.featured{border:2px solid var(--accent);background:var(--cream)}
+.featured-badge{position:absolute;top:-1px;left:50%;transform:translateX(-50%);background:var(--accent);color:var(--cream);font-size:.65rem;font-weight:500;letter-spacing:.12em;text-transform:uppercase;padding:.3rem 1rem}
+.plan-name{font-family:var(--font-d);font-size:1.3rem;font-weight:600;color:var(--ink);margin-bottom:.4rem}
+.plan-desc{font-size:.85rem;color:var(--ink-soft);margin-bottom:1.8rem;min-height:2.5em}
+.plan-price{font-family:var(--font-d);font-size:3rem;font-weight:300;color:var(--ink);line-height:1}
+.plan-price sup{font-size:1.2rem;vertical-align:top;margin-top:.5rem}
+.plan-price sub{font-size:.9rem;font-family:var(--font-b);font-weight:300;color:var(--stone)}
+.plan-features{list-style:none;margin:2rem 0;display:flex;flex-direction:column;gap:.8rem}
+.plan-features li{font-size:.88rem;color:var(--ink-soft);display:flex;align-items:flex-start;gap:.6rem}
+.plan-features li::before{content:'✓';color:var(--accent);font-weight:500;flex-shrink:0}
+.plan-features li.no::before{content:'✗';color:var(--stone)}
+.plan-features li.no{color:var(--stone)}
+.plan-cta{display:block;width:100%;padding:.9rem;text-align:center;font-family:var(--font-b);font-size:.75rem;font-weight:500;letter-spacing:.1em;text-transform:uppercase;border:none;cursor:pointer;text-decoration:none;transition:background .2s,color .2s}
+.plan-cta-primary{background:var(--ink);color:var(--cream)}
+.plan-cta-primary:hover{background:var(--accent)}
+.plan-cta-outline{background:transparent;border:1px solid var(--stone);color:var(--ink)}
+.plan-cta-outline:hover{border-color:var(--accent);color:var(--accent)}
+.faq-section{padding:5rem 4rem;background:var(--warm)}
+.faq-section .section-heading{max-width:none;margin-bottom:3rem}
+.faq-grid{display:grid;grid-template-columns:1fr 1fr;gap:2.5rem;max-width:900px}
+.faq-item{}
+.faq-q{font-family:var(--font-d);font-size:1.1rem;font-weight:600;color:var(--ink);margin-bottom:.5rem}
+.faq-a{font-size:.88rem;color:var(--ink-soft);line-height:1.7}
+@media(max-width:900px){
+  .pricing-hero{padding:7rem 1.5rem 3rem}
+  .pricing-grid{grid-template-columns:1fr;padding:0 1.5rem 4rem}
+  .faq-section{padding:4rem 1.5rem}
+  .faq-grid{grid-template-columns:1fr}
+}
+</style>
+{% endblock %}
+{% block content %}
+<section class="pricing-hero">
+  <p class="section-label">Simple Pricing</p>
+  <h2 class="section-heading">Plans for every stage of growth.</h2>
+  <p>No hidden fees. No lock-ins. Start free and scale as your business grows.</p>
+</section>
+
+<div class="pricing-grid">
+  <div class="pricing-card">
+    <p class="plan-name">Starter</p>
+    <p class="plan-desc">Perfect for solo marketers getting started.</p>
+    <div class="plan-price"><sup>₹</sup>0<sub>/mo</sub></div>
+    <ul class="plan-features">
+      <li>Up to 3 campaigns</li>
+      <li>50 leads</li>
+      <li>Basic analytics</li>
+      <li>1 user seat</li>
+      <li class="no">Custom reports</li>
+      <li class="no">Priority support</li>
+    </ul>
+    <a href="{{ url_for('signup') }}" class="plan-cta plan-cta-outline">Get Started Free</a>
+  </div>
+
+  <div class="pricing-card featured">
+    <div class="featured-badge">Most Popular</div>
+    <p class="plan-name">Growth</p>
+    <p class="plan-desc">For growing teams running multiple campaigns.</p>
+    <div class="plan-price"><sup>₹</sup>2,999<sub>/mo</sub></div>
+    <ul class="plan-features">
+      <li>Unlimited campaigns</li>
+      <li>500 leads</li>
+      <li>Advanced analytics</li>
+      <li>5 user seats</li>
+      <li>Custom reports</li>
+      <li class="no">Dedicated account manager</li>
+    </ul>
+    <a href="{{ url_for('signup') }}" class="plan-cta plan-cta-primary">Start 14-Day Trial</a>
+  </div>
+
+  <div class="pricing-card">
+    <p class="plan-name">Agency</p>
+    <p class="plan-desc">Built for agencies managing multiple clients.</p>
+    <div class="plan-price"><sup>₹</sup>7,999<sub>/mo</sub></div>
+    <ul class="plan-features">
+      <li>Unlimited campaigns</li>
+      <li>Unlimited leads</li>
+      <li>Full analytics suite</li>
+      <li>Unlimited seats</li>
+      <li>Custom reports</li>
+      <li>Dedicated account manager</li>
+    </ul>
+    <a href="{{ url_for('contact') }}" class="plan-cta plan-cta-outline">Contact Sales</a>
+  </div>
+</div>
+
+<section class="faq-section">
+  <p class="section-label">FAQs</p>
+  <h2 class="section-heading">Common questions.</h2>
+  <div class="faq-grid">
+    <div class="faq-item">
+      <p class="faq-q">Can I change plans later?</p>
+      <p class="faq-a">Yes, you can upgrade or downgrade your plan at any time. Changes take effect at the start of your next billing cycle.</p>
+    </div>
+    <div class="faq-item">
+      <p class="faq-q">Is there a free trial?</p>
+      <p class="faq-a">The Starter plan is free forever. The Growth plan comes with a 14-day free trial — no credit card required to start.</p>
+    </div>
+    <div class="faq-item">
+      <p class="faq-q">What payment methods do you accept?</p>
+      <p class="faq-a">We accept all major credit and debit cards, UPI, and net banking via our secure payment gateway.</p>
+    </div>
+    <div class="faq-item">
+      <p class="faq-q">Can I cancel anytime?</p>
+      <p class="faq-a">Absolutely. No lock-ins, no cancellation fees. If you cancel, you'll retain access until the end of your billing period.</p>
+    </div>
+    <div class="faq-item">
+      <p class="faq-q">Do you offer discounts for startups?</p>
+      <p class="faq-a">Yes — we offer a 30% discount for early-stage startups and NGOs. Reach out via our contact page for details.</p>
+    </div>
+    <div class="faq-item">
+      <p class="faq-q">Is my data secure?</p>
+      <p class="faq-a">All data is encrypted in transit and at rest. We never share your data with third parties and comply with Indian data protection guidelines.</p>
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,87 @@
+{% extends "dash_base.html" %}
+{% block title %}Checkout — Market Mosaic{% endblock %}
+{% block extra_head %}
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<style>
+.checkout-wrap{max-width:480px}
+.checkout-card{background:var(--warm);border:1px solid var(--sand);padding:2.5rem}
+.checkout-plan{font-family:var(--font-d);font-size:2rem;font-weight:300;color:var(--ink);margin-bottom:.3rem}
+.checkout-price{font-family:var(--font-d);font-size:1.3rem;color:var(--accent);margin-bottom:2rem;padding-bottom:1.5rem;border-bottom:1px solid var(--sand)}
+.checkout-item{display:flex;justify-content:space-between;padding:.6rem 0;font-size:.88rem;color:var(--ink-soft);border-bottom:1px solid var(--sand)}
+.checkout-total{display:flex;justify-content:space-between;padding:.8rem 0;font-family:var(--font-d);font-size:1.1rem;font-weight:600;color:var(--ink)}
+.pay-now-btn{width:100%;padding:1rem;background:var(--ink);color:var(--cream);border:none;cursor:pointer;font-family:var(--font-b);font-size:.82rem;font-weight:500;letter-spacing:.12em;text-transform:uppercase;transition:background .2s;margin-top:1.5rem}
+.pay-now-btn:hover{background:var(--accent)}
+.secure-note{text-align:center;margin-top:.8rem;font-size:.75rem;color:var(--stone)}
+.method-icons{display:flex;gap:.5rem;justify-content:center;flex-wrap:wrap;margin-top:.5rem}
+.method-tag{font-size:.62rem;font-weight:500;letter-spacing:.08em;text-transform:uppercase;padding:.2rem .6rem;border:1px solid var(--sand);color:var(--stone)}
+</style>
+{% endblock %}
+{% block dash_content %}
+<div class="dash-header">
+  <h1 class="dash-title">Checkout</h1>
+  <p class="dash-sub">Complete your upgrade to the {{ plan.name }} plan.</p>
+</div>
+<div class="checkout-wrap">
+  <div class="checkout-card">
+    <p class="checkout-plan">{{ plan.name }} Plan</p>
+    <p class="checkout-price">₹{{ "{:,}".format(plan.price) }}/month</p>
+
+    <div class="checkout-item"><span>{{ plan.name }} Plan (1 month)</span><span>₹{{ "{:,}".format(plan.price) }}</span></div>
+    <div class="checkout-item"><span>GST (18%)</span><span>₹{{ "{:,.0f}".format(plan.price * 0.18) }}</span></div>
+    <div class="checkout-total"><span>Total</span><span>₹{{ "{:,.0f}".format(plan.price * 1.18) }}</span></div>
+
+    <button class="pay-now-btn" onclick="openRazorpay()">Pay ₹{{ "{:,.0f}".format(plan.price * 1.18) }} Now →</button>
+    <p class="secure-note">🔒 Secured by Razorpay</p>
+    <div class="method-icons">
+      <span class="method-tag">UPI</span><span class="method-tag">Visa</span>
+      <span class="method-tag">Mastercard</span><span class="method-tag">Netbanking</span>
+      <span class="method-tag">GPay</span><span class="method-tag">PhonePe</span>
+    </div>
+  </div>
+  <div style="margin-top:1rem;text-align:center">
+    <a href="{{ url_for('billing') }}" style="font-size:.8rem;color:var(--stone)">← Back to Plans</a>
+  </div>
+
+  <!-- Hidden verify form -->
+  <form id="verifyForm" method="POST" action="{{ url_for('verify_payment') }}" style="display:none">
+    <input type="hidden" name="razorpay_order_id"   id="rzp_order_id"/>
+    <input type="hidden" name="razorpay_payment_id" id="rzp_payment_id"/>
+    <input type="hidden" name="razorpay_signature"  id="rzp_signature"/>
+    <input type="hidden" name="plan_id"             value="{{ plan.plan_id }}"/>
+  </form>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function openRazorpay(){
+  const options = {
+    key:          '{{ razorpay_key }}',
+    amount:       {{ order.amount }},
+    currency:     'INR',
+    name:         'Market Mosaic',
+    description:  '{{ plan.name }} Plan — Monthly',
+    order_id:     '{{ order.id }}',
+    prefill: {
+      name:  '{{ user.name }}',
+      email: '{{ user.email }}',
+      contact: '{{ user.phone or "" }}'
+    },
+    theme: { color: '#8b6f47' },
+    handler: function(response){
+      document.getElementById('rzp_order_id').value   = response.razorpay_order_id;
+      document.getElementById('rzp_payment_id').value = response.razorpay_payment_id;
+      document.getElementById('rzp_signature').value  = response.razorpay_signature;
+      document.getElementById('verifyForm').submit();
+    },
+    modal: {
+      ondismiss: function(){ console.log('Payment modal closed'); }
+    }
+  };
+  const rzp = new Razorpay(options);
+  rzp.on('payment.failed', function(response){
+    alert('Payment failed: ' + response.error.description);
+  });
+  rzp.open();
+}
+</script>
+{% endblock %}

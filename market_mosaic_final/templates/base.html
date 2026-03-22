@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>{% block title %}Market Mosaic{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --cream:#ffffff; --warm:#f0f7ff; --sand:#dbeafe; --stone:#93c5fd;
+  --ink:#0f172a; --ink-soft:#334155; --accent:#2563eb; --accent-light:#60a5fa;
+  --success:#16a34a; --error:#dc2626; --warn:#d97706;
+  --font-d:'Cormorant Garamond',serif; --font-b:'DM Sans',sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--cream);color:var(--ink);font-family:var(--font-b);font-weight:300;line-height:1.7;overflow-x:hidden}
+
+/* NAV */
+nav{position:fixed;top:0;left:0;right:0;z-index:200;display:flex;align-items:center;justify-content:space-between;padding:1.4rem 4rem;background:rgba(255,255,255,.95);backdrop-filter:blur(14px);border-bottom:1px solid #e2e8f0;transition:padding .3s}
+nav.scrolled{padding:.9rem 4rem}
+.nav-logo{font-family:var(--font-d);font-size:1.35rem;font-weight:600;letter-spacing:.03em;color:var(--ink);text-decoration:none}
+.nav-logo span{color:var(--accent)}
+.nav-links{display:flex;gap:2rem;list-style:none;align-items:center}
+.nav-links a{font-size:.75rem;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);text-decoration:none;transition:color .2s;position:relative}
+.nav-links a::after{content:'';position:absolute;bottom:-3px;left:0;right:0;height:1px;background:var(--accent);transform:scaleX(0);transform-origin:left;transition:transform .3s}
+.nav-links a:hover{color:var(--accent)}
+.nav-links a:hover::after{transform:scaleX(1)}
+.nav-btn{padding:.55rem 1.4rem;font-family:var(--font-b);font-size:.72rem;font-weight:500;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;border:none;cursor:pointer;transition:background .2s,color .2s}
+.nav-btn-outline{background:transparent;border:1px solid var(--stone);color:var(--ink)}
+.nav-btn-outline:hover{border-color:var(--accent);color:var(--accent)}
+.nav-btn-fill{background:var(--ink);color:var(--cream)}
+.nav-btn-fill:hover{background:var(--accent)}
+
+/* FLASH */
+.flash-wrap{position:fixed;top:80px;right:2rem;z-index:300;display:flex;flex-direction:column;gap:.6rem;max-width:320px}
+.flash{padding:.85rem 1.2rem;font-size:.85rem;border-left:3px solid;animation:slideIn .3s ease}
+.flash.success{background:#f0f7f1;border-color:var(--success);color:var(--success)}
+.flash.error{background:#fdf0ef;border-color:var(--error);color:var(--error)}
+@keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+
+/* BUTTONS */
+.btn{display:inline-block;padding:.8rem 2rem;font-family:var(--font-b);font-size:.75rem;font-weight:500;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;border:none;cursor:pointer;transition:background .2s,transform .2s}
+.btn-primary{background:var(--ink);color:var(--cream)}
+.btn-primary:hover{background:var(--accent);transform:translateY(-1px)}
+.btn-ghost{background:transparent;color:var(--ink);border:1px solid var(--stone)}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+.btn-sm{padding:.5rem 1.2rem;font-size:.68rem}
+.btn-danger{background:#b03a2e;color:#fff}
+.btn-danger:hover{background:#8e2e24}
+
+/* FORM */
+.form-group{margin-bottom:1.4rem}
+.form-group label{display:block;font-size:.7rem;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:.45rem}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:.85rem 1rem;background:var(--warm);border:1px solid var(--sand);font-family:var(--font-b);font-size:.95rem;color:var(--ink);outline:none;transition:border-color .2s;resize:none;appearance:none}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--accent)}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.form-group textarea{height:120px}
+
+/* HELPERS */
+.section-label{font-size:.7rem;font-weight:500;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:.8rem}
+.section-heading{font-family:var(--font-d);font-size:clamp(2.2rem,3.5vw,3.6rem);font-weight:300;line-height:1.12;color:var(--ink);margin-bottom:2rem}
+.divider{width:50px;height:1px;background:var(--accent);margin-bottom:1.8rem}
+.badge{display:inline-block;padding:.2rem .65rem;font-size:.65rem;font-weight:500;letter-spacing:.08em;text-transform:uppercase;border-radius:0}
+.badge-active{background:#e8f5ea;color:var(--success)}
+.badge-draft{background:#f0ebe2;color:var(--ink-soft)}
+.badge-paused{background:#fdf5e6;color:var(--warn)}
+.badge-new{background:#e8f0fa;color:#2c5fa1}
+.badge-qualified{background:#e8f5ea;color:var(--success)}
+.badge-contacted{background:#fdf5e6;color:var(--warn)}
+
+footer{background:var(--ink);padding:3rem 4rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1.5rem}
+.footer-logo{font-family:var(--font-d);font-size:1.2rem;font-weight:600;color:var(--cream)}
+.footer-logo span{color:var(--accent-light)}
+.footer-copy{font-size:.75rem;color:var(--stone)}
+.footer-links{display:flex;gap:1.5rem}
+.footer-links a{font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--stone);text-decoration:none;transition:color .2s}
+.footer-links a:hover{color:var(--accent-light)}
+
+@media(max-width:768px){
+  nav{padding:1rem 1.5rem}
+  nav.scrolled{padding:.7rem 1.5rem}
+  .nav-links{gap:1rem}
+  footer{padding:2.5rem 1.5rem;flex-direction:column;align-items:flex-start}
+  .form-row{grid-template-columns:1fr}
+}
+</style>
+{% block extra_head %}{% endblock %}
+</head>
+<body>
+
+<nav id="navbar">
+  <a class="nav-logo" href="{{ url_for('home') }}">Market Mosaic<span>.</span></a>
+  <ul class="nav-links">
+    <li><a href="{{ url_for('home') }}">Home</a></li>
+    <li><a href="{{ url_for('about') }}">About</a></li>
+    <li><a href="{{ url_for('services') }}">Services</a></li>
+    <li><a href="{{ url_for('blog') }}">Blog</a></li>
+    <li><a href="{{ url_for('pricing') }}">Pricing</a></li>
+    <li><a href="{{ url_for('contact') }}">Contact</a></li>
+    {% if user %}
+      <li><a href="{{ url_for('dashboard') }}" class="nav-btn nav-btn-fill">Dashboard</a></li>
+      <li><a href="{{ url_for('logout') }}" class="nav-btn nav-btn-outline">Logout</a></li>
+    {% else %}
+      <li><a href="{{ url_for('login') }}" class="nav-btn nav-btn-outline">Login</a></li>
+      <li><a href="{{ url_for('signup') }}" class="nav-btn nav-btn-fill">Get Started</a></li>
+    {% endif %}
+  </ul>
+</nav>
+
+<div class="flash-wrap">
+  {% with messages = get_flashed_messages(with_categories=True) %}
+    {% for cat, msg in messages %}
+      <div class="flash {{ cat }}">{{ msg }}</div>
+    {% endfor %}
+  {% endwith %}
+</div>
+
+{% block content %}{% endblock %}
+
+<footer>
+  <div class="footer-logo">Market Mosaic<span>.</span></div>
+  <p class="footer-copy">© 2026 Market Mosaic. All rights reserved.</p>
+  <div class="footer-links">
+    <a href="{{ url_for('about') }}">About</a>
+    <a href="{{ url_for('services') }}">Services</a>
+    <a href="{{ url_for('contact') }}">Contact</a>
+  </div>
+</footer>
+
+<script>
+window.addEventListener('scroll',()=>{
+  document.getElementById('navbar').classList.toggle('scrolled',window.scrollY>40);
+});
+setTimeout(()=>{
+  document.querySelectorAll('.flash').forEach(f=>{
+    f.style.transition='opacity .5s';f.style.opacity='0';
+    setTimeout(()=>f.remove(),500);
+  });
+},4000);
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

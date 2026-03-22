@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Client Portal — Market Mosaic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+:root{--cream:#ffffff;--warm:#f0f7ff;--sand:#dbeafe;--stone:#93c5fd;--ink:#0f172a;--ink-soft:#334155;--accent:#2563eb;--accent-light:#60a5fa;--success:#16a34a;--error:#dc2626;--font-d:'Cormorant Garamond',serif;--font-b:'DM Sans',sans-serif}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--ink);min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:var(--font-b);font-weight:300}
+.card{background:var(--cream);padding:3rem 2.5rem;width:100%;max-width:420px;position:relative}
+.portal-tag{font-size:.65rem;font-weight:500;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:1.5rem;display:block}
+h1{font-family:var(--font-d);font-size:2.4rem;font-weight:300;color:var(--ink);line-height:1.1;margin-bottom:.4rem}
+p.sub{color:var(--ink-soft);font-size:.875rem;margin-bottom:2rem}
+.flash{padding:.7rem 1rem;font-size:.8rem;margin-bottom:1rem;border-left:3px solid var(--error);background:#fef2f2;color:var(--error)}
+label{display:block;font-size:.68rem;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:.4rem}
+input{width:100%;padding:.8rem 1rem;border:1px solid var(--sand);background:var(--warm);font-family:var(--font-b);font-size:.875rem;color:var(--ink);margin-bottom:1.2rem;transition:border-color .2s;outline:none}
+input:focus{border-color:var(--accent)}
+.btn{width:100%;padding:.9rem;background:var(--ink);color:var(--cream);border:none;font-family:var(--font-b);font-size:.75rem;font-weight:500;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;transition:background .2s;margin-top:.4rem}
+.btn:hover{background:var(--accent)}
+.footer{margin-top:1.5rem;text-align:center;font-size:.8rem;color:var(--ink-soft)}
+.back{position:absolute;top:1.5rem;right:1.5rem;font-size:.72rem;color:var(--stone);text-decoration:none;letter-spacing:.06em;text-transform:uppercase}
+.back:hover{color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="card">
+  <a href="{{ url_for('login') }}" class="back">Agency Login →</a>
+  <span class="portal-tag">Client Portal</span>
+  <h1>Welcome back</h1>
+  <p class="sub">View your campaigns, leads and performance reports</p>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}
+      <div class="flash">{{ msg }}</div>
+    {% endfor %}
+  {% endwith %}
+  <form method="POST">
+    <label>Email Address</label>
+    <input type="email" name="email" required placeholder="you@company.com" autofocus>
+    <label>Password</label>
+    <input type="password" name="password" required placeholder="••••••••">
+    <button type="submit" class="btn">Access My Dashboard</button>
+  </form>
+  <div class="footer">Your agency will share login credentials with you.</div>
+</div>
+</body>
+</html>

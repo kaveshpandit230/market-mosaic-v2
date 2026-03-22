@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>My Dashboard — Market Mosaic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+:root{--cream:#ffffff;--warm:#f0f7ff;--sand:#dbeafe;--stone:#93c5fd;--ink:#0f172a;--ink-soft:#334155;--accent:#2563eb;--accent-light:#60a5fa;--success:#16a34a;--font-d:'Cormorant Garamond',serif;--font-b:'DM Sans',sans-serif}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--warm);font-family:var(--font-b);font-weight:300;color:var(--ink)}
+nav{background:var(--ink);padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+.logo{font-family:var(--font-d);font-size:1.3rem;color:var(--cream);font-weight:300}
+.logo span{color:var(--accent-light)}
+.nav-r{display:flex;align-items:center;gap:1.5rem}
+.portal-badge{font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--stone);border:1px solid rgba(255,255,255,.15);padding:.2rem .7rem}
+.user-name{font-size:.8rem;color:var(--stone)}
+.btn-logout{padding:.5rem 1rem;background:transparent;border:1px solid rgba(255,255,255,.2);color:var(--stone);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;text-decoration:none;transition:all .2s}
+.btn-logout:hover{border-color:var(--cream);color:var(--cream)}
+main{padding:2rem}
+.page-title{font-family:var(--font-d);font-size:2.2rem;font-weight:300;margin-bottom:.3rem}
+.page-sub{color:var(--ink-soft);font-size:.875rem;margin-bottom:2rem}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:2rem}
+.stat{background:var(--cream);border:1px solid var(--sand);padding:1.3rem 1.5rem}
+.stat-label{font-size:.65rem;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:.4rem}
+.stat-value{font-family:var(--font-d);font-size:2rem;font-weight:300;color:var(--ink)}
+.stat-sub{font-size:.72rem;color:var(--stone);margin-top:.2rem}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem;margin-bottom:1.2rem}
+.card{background:var(--cream);border:1px solid var(--sand);padding:1.5rem}
+.card-title{font-family:var(--font-d);font-size:1.1rem;margin-bottom:1rem;color:var(--ink)}
+table{width:100%;border-collapse:collapse;font-size:.8rem}
+th{font-size:.62rem;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft);padding:.4rem .6rem;text-align:left;border-bottom:1px solid var(--sand)}
+td{padding:.6rem .6rem;border-bottom:1px solid var(--warm);color:var(--ink-soft)}
+.badge{font-size:.6rem;font-weight:500;letter-spacing:.08em;text-transform:uppercase;padding:.2rem .6rem}
+.badge-green{background:#dcfce7;color:#166534}
+.badge-blue{background:#dbeafe;color:#1e40af}
+.badge-amber{background:#fef3c7;color:#92400e}
+.badge-gray{background:#f1f5f9;color:#475569}
+.empty{text-align:center;padding:2rem;color:var(--stone);font-size:.875rem}
+</style>
+</head>
+<body>
+<nav>
+  <div class="logo">Market<span>Mosaic</span></div>
+  <div class="nav-r">
+    <span class="portal-badge">Client View</span>
+    <span class="user-name">{{ client.name }} — {{ client.company }}</span>
+    <a href="{{ url_for('client_logout') }}" class="btn-logout">Logout</a>
+  </div>
+</nav>
+<main>
+  <div class="page-title">Welcome, {{ client.name.split()[0] }}</div>
+  <div class="page-sub">Live overview of your marketing performance</div>
+
+  {% set total_spend = campaigns|sum(attribute='spent') %}
+  {% set total_clicks = campaigns|sum(attribute='clicks') %}
+  {% set total_conv = campaigns|sum(attribute='conversions') %}
+  {% set active_c = campaigns|selectattr('status','eq','active')|list|length %}
+
+  <div class="stats-grid">
+    <div class="stat">
+      <div class="stat-label">Active Campaigns</div>
+      <div class="stat-value">{{ active_c }}</div>
+      <div class="stat-sub">of {{ campaigns|length }} total</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Total Clicks</div>
+      <div class="stat-value">{{ "{:,}".format(total_clicks) }}</div>
+      <div class="stat-sub">across all campaigns</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Conversions</div>
+      <div class="stat-value">{{ total_conv }}</div>
+      <div class="stat-sub">{% if total_clicks > 0 %}{{ "%.1f"|format(total_conv/total_clicks*100) }}% rate{% else %}—{% endif %}</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Total Spend</div>
+      <div class="stat-value">₹{{ "{:,.0f}".format(total_spend) }}</div>
+      <div class="stat-sub">{% if total_conv > 0 %}₹{{ "{:,.0f}".format(total_spend/total_conv) }} / conv.{% else %}—{% endif %}</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Campaign Performance</div>
+      {% if campaigns %}
+      <table>
+        <thead><tr><th>Campaign</th><th>Channel</th><th>Clicks</th><th>Conv.</th><th>Status</th></tr></thead>
+        <tbody>
+        {% for c in campaigns %}
+        <tr>
+          <td>{{ c.name }}</td>
+          <td>{{ c.channel }}</td>
+          <td>{{ "{:,}".format(c.clicks) }}</td>
+          <td>{{ c.conversions }}</td>
+          <td><span class="badge {% if c.status=='active' %}badge-green{% elif c.status=='paused' %}badge-amber{% else %}badge-gray{% endif %}">{{ c.status }}</span></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}<div class="empty">No campaigns yet</div>{% endif %}
+    </div>
+
+    <div class="card">
+      <div class="card-title">Leads Overview</div>
+      {% if leads %}
+      <table>
+        <thead><tr><th>Name</th><th>Company</th><th>Source</th><th>Status</th></tr></thead>
+        <tbody>
+        {% for l in leads[:8] %}
+        <tr>
+          <td>{{ l.name }}</td>
+          <td>{{ l.company or '—' }}</td>
+          <td>{{ l.source }}</td>
+          <td><span class="badge {% if l.status=='qualified' %}badge-green{% elif l.status=='new' %}badge-blue{% else %}badge-amber{% endif %}">{{ l.status }}</span></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}<div class="empty">No leads yet</div>{% endif %}
+    </div>
+  </div>
+
+  {% if campaigns %}
+  <div class="card">
+    <div class="card-title">Spend by Campaign</div>
+    <canvas id="spendChart" height="70"></canvas>
+  </div>
+  <script>
+  new Chart(document.getElementById('spendChart'),{
+    type:'bar',
+    data:{
+      labels:{{ campaigns|map(attribute='name')|list|tojson }},
+      datasets:[{label:'Spend (₹)',data:{{ campaigns|map(attribute='spent')|list|tojson }},
+        backgroundColor:'rgba(37,99,235,.65)',borderRadius:3}]
+    },
+    options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}
+  });
+  </script>
+  {% endif %}
+</main>
+</body>
+</html>

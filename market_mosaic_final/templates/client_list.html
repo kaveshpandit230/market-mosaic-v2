@@ -1,0 +1,54 @@
+{% extends "dash_base.html" %}
+{% block title %}Client Portal — Market Mosaic{% endblock %}
+{% block extra_head %}
+<style>
+.portal-url{background:var(--warm);border:1px solid var(--sand);padding:1rem 1.2rem;font-size:.8rem;display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem}
+.portal-url code{font-family:monospace;color:var(--accent);font-size:.82rem;flex:1}
+.copy-btn{padding:.35rem .9rem;background:var(--ink);color:var(--cream);border:none;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;font-family:var(--font-b);transition:background .2s}
+.copy-btn:hover{background:var(--accent)}
+</style>
+{% endblock %}
+{% block content %}
+<div class="dash-header" style="display:flex;justify-content:space-between;align-items:flex-start">
+  <div>
+    <h1 class="dash-title">Client Portal</h1>
+    <p class="dash-sub">Create read-only portal accounts for your clients</p>
+  </div>
+  <a href="{{ url_for('new_client') }}" style="padding:.75rem 1.5rem;background:var(--ink);color:var(--cream);text-decoration:none;font-size:.72rem;font-weight:500;letter-spacing:.1em;text-transform:uppercase;transition:background .2s" onmouseover="this.style.background='var(--accent)'" onmouseout="this.style.background='var(--ink)'">+ Add Client</a>
+</div>
+
+<div class="portal-url">
+  <span style="font-size:.65rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);font-weight:500">Client Login URL</span>
+  <code id="portalUrl">{{ request.host_url }}client/login</code>
+  <button class="copy-btn" onclick="navigator.clipboard.writeText(document.getElementById('portalUrl').textContent);this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)">Copy</button>
+</div>
+
+{% if clients %}
+<div class="dash-card">
+  <table>
+    <thead><tr><th>Name</th><th>Company</th><th>Email</th><th>Created</th><th></th></tr></thead>
+    <tbody>
+    {% for c in clients %}
+    <tr>
+      <td style="font-weight:500;color:var(--ink)">{{ c.name }}</td>
+      <td>{{ c.company }}</td>
+      <td>{{ c.email }}</td>
+      <td>{{ c.created_at[:10] }}</td>
+      <td>
+        <form method="POST" action="{{ url_for('delete_client', cid=c.id) }}" onsubmit="return confirm('Remove {{ c.name }}?')">
+          <button type="submit" style="padding:.3rem .8rem;background:transparent;border:1px solid #fca5a5;color:#dc2626;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;font-family:var(--font-b)">Remove</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="dash-card" style="text-align:center;padding:3rem">
+  <div style="font-family:var(--font-d);font-size:1.5rem;margin-bottom:.5rem;color:var(--ink)">No clients yet</div>
+  <p style="color:var(--ink-soft);font-size:.875rem;margin-bottom:1.5rem">Give clients a read-only view of your campaigns and leads</p>
+  <a href="{{ url_for('new_client') }}" style="display:inline-block;padding:.75rem 1.5rem;background:var(--ink);color:var(--cream);text-decoration:none;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase">Add First Client</a>
+</div>
+{% endif %}
+{% endblock %}
