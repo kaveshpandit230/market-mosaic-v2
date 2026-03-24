@@ -1381,12 +1381,12 @@ def google_callback():
         email = info['email'].lower()
         name  = info.get('name', email.split('@')[0].title())
         with get_db() as db:
-            user = db.execute('SELECT * FROM users WHERE email=%s', (email,)).fetchone()
+            user = db.execute('SELECT * FROM users WHERE email=?', (email,)).fetchone()
             if not user:
                 api_key = 'mm_' + secrets.token_hex(24)
-                db.execute('INSERT INTO users (name,company,email,password,api_key) VALUES (%s,%s,%s,%s,%s)',
+                db.execute('INSERT INTO users (name,company,email,password,api_key) VALUES (?,?,?,?,?)',
                            (name, '', email, generate_password_hash(secrets.token_hex(16)), api_key))
-                user = db.execute('SELECT * FROM users WHERE email=%s', (email,)).fetchone()
+                user = db.execute('SELECT * FROM users WHERE email=?', (email,)).fetchone()
                 _seed_demo(db, user['id'])
                 _seed_crm_demo(db, user['id'])
         session['user_id'] = user['id']
