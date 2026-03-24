@@ -1,0 +1,172 @@
+{% extends "dash_base.html" %}
+{% block title %}Notification Settings — Market Mosaic{% endblock %}
+{% block extra_head %}
+<style>
+.notif-card{background:var(--warm);border:1px solid var(--sand);padding:2rem;margin-bottom:1.5rem;max-width:640px}
+.notif-card-title{font-family:var(--font-d);font-size:1.05rem;font-weight:600;color:var(--ink);margin-bottom:1.2rem}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:.8rem 0;border-bottom:1px solid var(--sand)}
+.toggle-row:last-of-type{border:none}
+.toggle-label{font-size:.88rem;color:var(--ink)}
+.toggle-sub{font-size:.75rem;color:var(--stone);margin-top:.15rem}
+.toggle{position:relative;width:42px;height:24px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0}
+.slider{position:absolute;cursor:pointer;inset:0;background:var(--sand);transition:.3s;border-radius:24px}
+.slider::before{content:'';position:absolute;height:18px;width:18px;left:3px;bottom:3px;background:white;transition:.3s;border-radius:50%}
+input:checked+.slider{background:var(--accent)}
+input:checked+.slider::before{transform:translateX(18px)}
+.status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:.4rem}
+.status-dot.on{background:#3a7d44}
+.status-dot.off{background:var(--stone)}
+.setup-steps{background:var(--cream);border:1px solid var(--sand);padding:1.2rem;margin-top:1rem;font-size:.85rem;color:var(--ink-soft);line-height:1.8}
+.setup-steps ol{padding-left:1.2rem;margin-top:.5rem}
+.setup-steps code{background:var(--sand);padding:.1rem .4rem;font-size:.78rem;border-radius:0}
+.test-row{display:flex;gap:.8rem;align-items:center;flex-wrap:wrap;margin-top:.8rem}
+</style>
+{% endblock %}
+{% block dash_content %}
+<div class="dash-header">
+  <h1 class="dash-title">Notification Settings</h1>
+  <p class="dash-sub">Configure how and where you receive alerts from Market Mosaic.</p>
+</div>
+
+<form method="POST">
+  <!-- Phone Number -->
+  <div class="notif-card">
+    <p class="notif-card-title">Your Phone Number</p>
+    <div class="form-group">
+      <label>Mobile Number (with country code)</label>
+      <input type="text" name="phone" value="{{ user.phone or '' }}" placeholder="+91 98200 00000"/>
+    </div>
+    <p style="font-size:.78rem;color:var(--stone)">Used for WhatsApp and SMS notifications. Format: +91XXXXXXXXXX</p>
+  </div>
+
+  <!-- In-App -->
+  <div class="notif-card">
+    <p class="notif-card-title">
+      <span class="status-dot on"></span>In-App Notifications
+    </p>
+    <div class="toggle-row">
+      <div><div class="toggle-label">Dashboard Bell Alerts</div><div class="toggle-sub">Notifications appear in your dashboard sidebar</div></div>
+      <label class="toggle"><input type="checkbox" name="notif_app" {% if user.notif_app %}checked{% endif %}/><span class="slider"></span></label>
+    </div>
+    <p style="font-size:.78rem;color:var(--stone);margin-top:.8rem">In-app notifications are always available — no setup required.</p>
+  </div>
+
+  <!-- WhatsApp -->
+  <div class="notif-card">
+    <p class="notif-card-title">
+      <span class="status-dot {{ 'on' if twilio_configured else 'off' }}"></span>
+      WhatsApp Notifications
+      <span style="font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;{% if twilio_configured %}color:var(--accent){% else %}color:var(--stone){% endif %};margin-left:.6rem">{% if twilio_configured %}Configured{% else %}Not Configured{% endif %}</span>
+    </p>
+    <div class="toggle-row">
+      <div><div class="toggle-label">Enable WhatsApp Alerts</div><div class="toggle-sub">Receive key updates on WhatsApp (via Twilio)</div></div>
+      <label class="toggle"><input type="checkbox" name="notif_whatsapp" {% if user.notif_whatsapp %}checked{% endif %} {% if not twilio_configured %}disabled{% endif %}/><span class="slider"></span></label>
+    </div>
+
+    {% if not twilio_configured %}
+    <div class="setup-steps">
+      <strong>Setup Guide — WhatsApp via Twilio (Free Sandbox)</strong>
+      <ol>
+        <li>Sign up free at <strong>twilio.com</strong></li>
+        <li>Go to <strong>Messaging → Try WhatsApp</strong> to activate the sandbox</li>
+        <li>Send the join code from your phone to <code>+1 415 523 8886</code></li>
+        <li>Set these environment variables on GoDaddy:<br>
+          <code>TWILIO_SID</code> = your Account SID<br>
+          <code>TWILIO_TOKEN</code> = your Auth Token<br>
+          <code>TWILIO_WHATSAPP_FROM</code> = <code>whatsapp:+14155238886</code> (sandbox)
+        </li>
+        <li>For production, apply for a WhatsApp Business number in Twilio console</li>
+      </ol>
+      <strong>Cost:</strong> Twilio sandbox is free. Production: ~$0.005/message.
+    </div>
+    {% else %}
+    <div class="test-row">
+      <span style="font-size:.82rem;color:var(--ink-soft)">Test your WhatsApp connection:</span>
+      <button type="submit" name="test_whatsapp" value="1" class="btn btn-ghost btn-sm">Send Test WhatsApp</button>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- SMS -->
+  <div class="notif-card">
+    <p class="notif-card-title">
+      <span class="status-dot {{ 'on' if fast2sms_configured else 'off' }}"></span>
+      SMS Notifications
+      <span style="font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;{% if fast2sms_configured %}color:var(--accent){% else %}color:var(--stone){% endif %};margin-left:.6rem">{% if fast2sms_configured %}Configured{% else %}Not Configured{% endif %}</span>
+    </p>
+    <div class="toggle-row">
+      <div><div class="toggle-label">Enable SMS Alerts</div><div class="toggle-sub">Receive key updates via SMS (via Fast2SMS — Indian numbers)</div></div>
+      <label class="toggle"><input type="checkbox" name="notif_sms" {% if user.notif_sms %}checked{% endif %} {% if not fast2sms_configured %}disabled{% endif %}/><span class="slider"></span></label>
+    </div>
+
+    {% if not fast2sms_configured %}
+    <div class="setup-steps">
+      <strong>Setup Guide — SMS via Fast2SMS (Free for Indian Numbers)</strong>
+      <ol>
+        <li>Sign up free at <strong>fast2sms.com</strong></li>
+        <li>Go to <strong>Dev API</strong> → copy your API key</li>
+        <li>Set this environment variable on GoDaddy:<br>
+          <code>FAST2SMS_KEY</code> = your API key
+        </li>
+        <li>Free plan includes credits on signup. Recharge starts at ₹100.</li>
+        <li>Works only for Indian mobile numbers (+91)</li>
+      </ol>
+      <strong>Cost:</strong> ~₹0.15–0.25 per SMS. First few hundred SMS free with signup credits.
+    </div>
+    {% else %}
+    <div class="test-row">
+      <span style="font-size:.82rem;color:var(--ink-soft)">Test your SMS connection:</span>
+      <button type="submit" name="test_sms" value="1" class="btn btn-ghost btn-sm">Send Test SMS</button>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- When notifications fire -->
+  <div class="notif-card">
+    <p class="notif-card-title">When You'll Be Notified</p>
+    {% for event in [
+      ('New account signup', 'Immediately on registration'),
+      ('Campaign created', 'When a new campaign is added'),
+      ('New lead added', 'When a lead is captured'),
+      ('Payment successful', 'After successful Razorpay payment'),
+      ('Payment failed', 'If a payment attempt fails'),
+    ] %}
+    <div class="toggle-row">
+      <div><div class="toggle-label">{{ event[0] }}</div><div class="toggle-sub">{{ event[1] }}</div></div>
+      <span style="font-size:.72rem;color:var(--accent);font-weight:500">✓ Enabled</span>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Manual test -->
+  <div class="notif-card">
+    <p class="notif-card-title">Send a Test Notification</p>
+    <div class="form-group">
+      <label>Message</label>
+      <input type="text" form="testForm" name="message" placeholder="This is a test notification from Market Mosaic"/>
+    </div>
+    <div style="margin-bottom:1rem">
+      <label style="font-size:.7rem;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft);display:block;margin-bottom:.5rem">Send via</label>
+      <div style="display:flex;gap:1.2rem;flex-wrap:wrap">
+        <label style="display:flex;gap:.4rem;align-items:center;font-size:.88rem;cursor:pointer">
+          <input type="checkbox" form="testForm" name="channels" value="app" checked/> In-App
+        </label>
+        <label style="display:flex;gap:.4rem;align-items:center;font-size:.88rem;cursor:pointer">
+          <input type="checkbox" form="testForm" name="channels" value="whatsapp" {% if not twilio_configured %}disabled{% endif %}/> WhatsApp
+        </label>
+        <label style="display:flex;gap:.4rem;align-items:center;font-size:.88rem;cursor:pointer">
+          <input type="checkbox" form="testForm" name="channels" value="sms" {% if not fast2sms_configured %}disabled{% endif %}/> SMS
+        </label>
+      </div>
+    </div>
+    <form id="testForm" method="POST" action="{{ url_for('send_test_notification') }}" style="margin:0">
+      <button type="submit" class="btn btn-ghost btn-sm">Send Test</button>
+    </form>
+  </div>
+
+  <div style="max-width:640px">
+    <button type="submit" class="btn btn-primary">Save Notification Preferences</button>
+  </div>
+</form>
+{% endblock %}

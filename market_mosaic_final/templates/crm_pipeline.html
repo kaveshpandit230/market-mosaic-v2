@@ -1,0 +1,106 @@
+{% extends "dash_base.html" %}
+{% block title %}Pipeline — Market Mosaic CRM{% endblock %}
+{% block extra_head %}
+<style>
+.pipeline-wrap{overflow-x:auto;padding-bottom:1rem}
+.pipeline{display:flex;gap:1rem;min-width:max-content}
+.pipeline-col{width:260px;flex-shrink:0}
+.col-header{padding:.8rem 1rem;margin-bottom:.8rem;display:flex;justify-content:space-between;align-items:center}
+.col-title{font-family:var(--font-d);font-size:1rem;font-weight:600;color:var(--ink)}
+.col-meta{font-size:.72rem;color:var(--stone)}
+.col-value{font-size:.75rem;font-weight:500;color:var(--accent)}
+.deal-card{background:var(--warm);border:1px solid var(--sand);padding:1rem;margin-bottom:.7rem;transition:box-shadow .2s,transform .15s;cursor:pointer}
+.deal-card:hover{box-shadow:0 6px 20px rgba(0,0,0,.07);transform:translateY(-1px)}
+.deal-title{font-size:.9rem;font-weight:500;color:var(--ink);margin-bottom:.4rem}
+.deal-company{font-size:.75rem;color:var(--stone);margin-bottom:.5rem}
+.deal-value{font-family:var(--font-d);font-size:1.1rem;font-weight:300;color:var(--ink)}
+.deal-prob{font-size:.7rem;color:var(--stone)}
+.deal-close{font-size:.72rem;color:var(--accent);margin-top:.4rem}
+.deal-actions{display:flex;gap:.4rem;margin-top:.7rem;padding-top:.6rem;border-top:1px solid var(--sand)}
+.stage-bar{height:3px;width:100%;margin-bottom:.6rem;border-radius:0}
+.bar-prospecting{background:#378ADD}
+.bar-qualified{background:#3a7d44}
+.bar-proposal{background:#b7770d}
+.bar-negotiation{background:#b03a2e}
+.bar-closed-won{background:#1D9E75}
+.bar-closed-lost{background:var(--stone)}
+.col-prospecting{border-top:3px solid #378ADD}
+.col-qualified{border-top:3px solid #3a7d44}
+.col-proposal{border-top:3px solid #b7770d}
+.col-negotiation{border-top:3px solid #b03a2e}
+.col-closed-won{border-top:3px solid #1D9E75}
+.pipeline-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:2rem}
+.add-deal-btn{width:100%;padding:.6rem;border:1px dashed var(--stone);background:transparent;cursor:pointer;font-family:var(--font-b);font-size:.75rem;color:var(--stone);transition:all .2s;margin-top:.3rem}
+.add-deal-btn:hover{border-color:var(--accent);color:var(--accent)}
+</style>
+{% endblock %}
+{% block dash_content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem">
+  <div>
+    <h1 class="dash-title">Deals Pipeline</h1>
+    <p class="dash-sub">{{ total_deals }} deals · Rs{{ "{:,.0f}".format(pipeline_value) }} total pipeline</p>
+  </div>
+  <div style="display:flex;gap:.8rem">
+    <a href="{{ url_for('crm_contacts') }}" class="btn btn-ghost btn-sm">View Contacts</a>
+  </div>
+</div>
+
+<!-- Summary -->
+<div class="pipeline-summary">
+  <div class="stat-card"><div class="stat-card-label">Total Deals</div><div class="stat-card-value">{{ total_deals }}</div></div>
+  <div class="stat-card"><div class="stat-card-label">Pipeline Value</div><div class="stat-card-value" style="font-size:1.4rem">Rs{{ "{:,.0f}".format(pipeline_value) }}</div></div>
+  <div class="stat-card"><div class="stat-card-label">Won This Month</div><div class="stat-card-value" style="color:#1D9E75">Rs{{ "{:,.0f}".format(won_value) }}</div></div>
+  <div class="stat-card"><div class="stat-card-label">Win Rate</div><div class="stat-card-value">{{ win_rate }}%</div></div>
+</div>
+
+<!-- Kanban Board -->
+<div class="pipeline-wrap">
+  <div class="pipeline">
+    {% for stage_key, stage_label, stage_deals in stages %}
+    {% set stage_total = stage_deals|sum(attribute='value') %}
+    <div class="pipeline-col col-{{ stage_key }}">
+      <div class="col-header" style="background:var(--warm);border:1px solid var(--sand)">
+        <div>
+          <div class="col-title">{{ stage_label }}</div>
+          <div class="col-meta">{{ stage_deals|length }} deals</div>
+        </div>
+        <div class="col-value">Rs{{ "{:,.0f}".format(stage_total) }}</div>
+      </div>
+
+      {% for d in stage_deals %}
+      <div class="deal-card">
+        <div class="deal-title">{{ d.title }}</div>
+        <div class="deal-company">{% if d.contact_name %}{{ d.contact_name }}{% else %}No contact{% endif %}</div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline">
+          <div class="deal-value">Rs{{ "{:,.0f}".format(d.value) }}</div>
+          <div class="deal-prob">{{ d.probability }}%</div>
+        </div>
+        {% if d.expected_close %}<div class="deal-close">Close: {{ d.expected_close }}</div>{% endif %}
+        <div class="deal-actions">
+          {% set next_stages = {'prospecting':'qualified','qualified':'proposal','proposal':'negotiation','negotiation':'closed-won'} %}
+          {% if stage_key in next_stages %}
+          <form method="POST" action="{{ url_for('move_deal', did=d.id) }}" style="margin:0">
+            <input type="hidden" name="stage" value="{{ next_stages[stage_key] }}"/>
+            <input type="hidden" name="redirect" value="{{ url_for('crm_pipeline') }}"/>
+            <button type="submit" class="btn btn-ghost btn-sm">Advance</button>
+          </form>
+          {% endif %}
+          <form method="POST" action="{{ url_for('delete_deal', did=d.id) }}" style="margin:0" onsubmit="return confirm('Delete this deal?')">
+            <input type="hidden" name="redirect" value="{{ url_for('crm_pipeline') }}"/>
+            <button type="submit" class="btn btn-danger btn-sm">X</button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+
+      <!-- Quick add -->
+      <form method="POST" action="{{ url_for('new_deal') }}" style="margin-top:.3rem">
+        <input type="hidden" name="stage" value="{{ stage_key }}"/>
+        <input type="hidden" name="redirect" value="{{ url_for('crm_pipeline') }}"/>
+        <input type="text" name="title" placeholder="+ Add deal..." style="width:100%;padding:.5rem .7rem;border:1px dashed var(--stone);background:transparent;font-family:var(--font-b);font-size:.8rem;outline:none;color:var(--ink-soft)"/>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

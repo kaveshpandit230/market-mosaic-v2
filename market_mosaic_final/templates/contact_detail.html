@@ -1,0 +1,225 @@
+{% extends "dash_base.html" %}
+{% block title %}{{ contact.name }} — Market Mosaic CRM{% endblock %}
+{% block extra_head %}
+<style>
+.contact-profile{display:grid;grid-template-columns:320px 1fr;gap:1.5rem;align-items:start}
+.profile-card{background:var(--warm);border:1px solid var(--sand);padding:2rem;position:sticky;top:90px}
+.profile-avatar{width:72px;height:72px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-family:var(--font-d);font-size:2rem;color:var(--cream);font-weight:300;margin:0 auto 1rem}
+.profile-name{font-family:var(--font-d);font-size:1.4rem;font-weight:300;text-align:center;color:var(--ink)}
+.profile-title{text-align:center;font-size:.78rem;color:var(--stone);margin-bottom:.3rem}
+.profile-company{text-align:center;color:var(--accent);font-size:.88rem;font-weight:500;margin-bottom:1.5rem}
+.profile-field{display:flex;flex-direction:column;padding:.7rem 0;border-bottom:1px solid var(--sand)}
+.profile-field:last-of-type{border:none}
+.profile-label{font-size:.62rem;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--stone);margin-bottom:.2rem}
+.profile-value{font-size:.88rem;color:var(--ink)}
+.profile-tags{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.4rem}
+.tag{font-size:.62rem;font-weight:500;letter-spacing:.08em;text-transform:uppercase;padding:.18rem .55rem;border:1px solid var(--stone);color:var(--ink-soft)}
+.section-tabs{display:flex;gap:0;border-bottom:1px solid var(--sand);margin-bottom:1.5rem}
+.tab-btn{padding:.7rem 1.2rem;font-size:.75rem;font-weight:500;letter-spacing:.08em;text-transform:uppercase;border:none;background:none;cursor:pointer;color:var(--stone);border-bottom:2px solid transparent;transition:all .2s}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-content{display:none}.tab-content.active{display:block}
+.timeline-item{display:flex;gap:1rem;padding:.9rem 0;border-bottom:1px solid var(--sand)}
+.timeline-item:last-child{border:none}
+.timeline-icon{width:32px;height:32px;border-radius:50%;background:var(--sand);display:flex;align-items:center;justify-content:center;font-size:.85rem;flex-shrink:0}
+.timeline-body{flex:1}
+.timeline-subject{font-size:.88rem;font-weight:500;color:var(--ink)}
+.timeline-meta{font-size:.75rem;color:var(--stone);margin-top:.2rem}
+.timeline-notes{font-size:.82rem;color:var(--ink-soft);margin-top:.3rem;font-style:italic}
+.deal-item{display:flex;justify-content:space-between;align-items:center;padding:.9rem;background:var(--cream);border:1px solid var(--sand);margin-bottom:.6rem}
+.deal-stage{font-size:.65rem;font-weight:500;letter-spacing:.1em;text-transform:uppercase;padding:.2rem .6rem}
+.stage-prospecting{background:#e8f0fa;color:#2c5fa1}
+.stage-qualified{background:#e8f5ea;color:#3a7d44}
+.stage-proposal{background:#fdf5e6;color:#b7770d}
+.stage-negotiation{background:#fdf0ef;color:#b03a2e}
+.stage-closed-won{background:#e8f5ea;color:#3a7d44}
+.stage-closed-lost{background:#f0ebe2;color:var(--stone)}
+.quick-add{background:var(--warm);border:1px solid var(--sand);padding:1.2rem;margin-bottom:1.2rem}
+.quick-add-title{font-size:.7rem;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin-bottom:.8rem}
+@media(max-width:900px){.contact-profile{grid-template-columns:1fr}.profile-card{position:static}}
+</style>
+{% endblock %}
+{% block dash_content %}
+<div style="margin-bottom:1rem">
+  <a href="{{ url_for('crm_contacts') }}" style="font-size:.78rem;color:var(--stone);text-decoration:none">← Back to Contacts</a>
+</div>
+
+<div class="contact-profile">
+  <!-- Left: Profile Card -->
+  <div class="profile-card">
+    <div class="profile-avatar">{{ contact.name[0].upper() }}</div>
+    <div class="profile-name">{{ contact.name }}</div>
+    <div class="profile-title">{{ contact.title or '' }}</div>
+    <div class="profile-company">{{ contact.company or 'No company' }}</div>
+
+    <form method="POST">
+      <input type="hidden" name="action" value="update"/>
+      <div class="profile-field">
+        <span class="profile-label">Full Name</span>
+        <input name="name" value="{{ contact.name }}" style="background:none;border:none;border-bottom:1px dashed var(--sand);font-family:var(--font-b);font-size:.88rem;outline:none;padding:.2rem 0;width:100%;color:var(--ink)"/>
+      </div>
+      <div class="profile-field">
+        <span class="profile-label">Email</span>
+        <input name="email" value="{{ contact.email or '' }}" style="background:none;border:none;border-bottom:1px dashed var(--sand);font-family:var(--font-b);font-size:.88rem;outline:none;padding:.2rem 0;width:100%;color:var(--ink)"/>
+      </div>
+      <div class="profile-field">
+        <span class="profile-label">Phone</span>
+        <input name="phone" value="{{ contact.phone or '' }}" style="background:none;border:none;border-bottom:1px dashed var(--sand);font-family:var(--font-b);font-size:.88rem;outline:none;padding:.2rem 0;width:100%;color:var(--ink)"/>
+      </div>
+      <div class="profile-field">
+        <span class="profile-label">Company</span>
+        <input name="company" value="{{ contact.company or '' }}" style="background:none;border:none;border-bottom:1px dashed var(--sand);font-family:var(--font-b);font-size:.88rem;outline:none;padding:.2rem 0;width:100%;color:var(--ink)"/>
+      </div>
+      <div class="profile-field">
+        <span class="profile-label">Job Title</span>
+        <input name="title" value="{{ contact.title or '' }}" style="background:none;border:none;border-bottom:1px dashed var(--sand);font-family:var(--font-b);font-size:.88rem;outline:none;padding:.2rem 0;width:100%;color:var(--ink)"/>
+      </div>
+      <div class="profile-field">
+        <span class="profile-label">Source</span>
+        <select name="source" style="background:none;border:none;border-bottom:1px dashed var(--sand);font-family:var(--font-b);font-size:.88rem;outline:none;padding:.2rem 0;width:100%;color:var(--ink);appearance:none">
+          {% for s in ['Organic','LinkedIn','Google','Referral','Email','Event','Manual'] %}
+          <option {% if contact.source==s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="profile-field">
+        <span class="profile-label">Tags (comma separated)</span>
+        <input name="tags" value="{{ contact.tags or '' }}" placeholder="vip, warm, q2-2026" style="background:none;border:none;border-bottom:1px dashed var(--sand);font-family:var(--font-b);font-size:.88rem;outline:none;padding:.2rem 0;width:100%;color:var(--ink)"/>
+      </div>
+      <div class="profile-field">
+        <span class="profile-label">Notes</span>
+        <textarea name="notes" style="background:none;border:none;border-bottom:1px dashed var(--sand);font-family:var(--font-b);font-size:.82rem;outline:none;padding:.2rem 0;width:100%;color:var(--ink-soft);resize:none;height:60px">{{ contact.notes or '' }}</textarea>
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;margin-top:1rem">Save Changes</button>
+    </form>
+
+    <div style="margin-top:1rem;text-align:center">
+      <form method="POST" action="{{ url_for('delete_contact', cid=contact.id) }}" onsubmit="return confirm('Delete {{ contact.name }}?')">
+        <button type="submit" class="btn btn-danger btn-sm">Delete Contact</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Right: Tabs -->
+  <div>
+    <div class="section-tabs">
+      <button class="tab-btn active" onclick="showTab('timeline',this)">Timeline</button>
+      <button class="tab-btn" onclick="showTab('deals',this)">Deals ({{ deals|length }})</button>
+      <button class="tab-btn" onclick="showTab('activities',this)">Activities ({{ activities|length }})</button>
+    </div>
+
+    <!-- Timeline Tab -->
+    <div class="tab-content active" id="tab-timeline">
+      <!-- Quick add activity -->
+      <div class="quick-add">
+        <div class="quick-add-title">Log Activity</div>
+        <form method="POST" action="{{ url_for('new_activity') }}" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:.6rem;align-items:end">
+          <input type="hidden" name="contact_id" value="{{ contact.id }}"/>
+          <div class="form-group" style="margin:0">
+            <label>Type</label>
+            <select name="type" style="width:100%;padding:.5rem;border:1px solid var(--sand);background:var(--warm);font-family:var(--font-b);font-size:.82rem;outline:none;appearance:none">
+              <option>Call</option><option>Email</option><option>Meeting</option><option>Note</option><option>WhatsApp</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0">
+            <label>Subject</label>
+            <input type="text" name="subject" placeholder="e.g. Follow-up call" style="width:100%;padding:.5rem;border:1px solid var(--sand);background:var(--warm);font-family:var(--font-b);font-size:.82rem;outline:none"/>
+          </div>
+          <div class="form-group" style="margin:0">
+            <label>Notes</label>
+            <input type="text" name="notes" placeholder="Optional notes" style="width:100%;padding:.5rem;border:1px solid var(--sand);background:var(--warm);font-family:var(--font-b);font-size:.82rem;outline:none"/>
+          </div>
+          <button type="submit" class="btn btn-primary btn-sm">Log</button>
+        </form>
+      </div>
+
+      <!-- Timeline -->
+      {% for a in activities %}
+      <div class="timeline-item">
+        <div class="timeline-icon">
+          {% if a.type=='Call' %}📞{% elif a.type=='Email' %}✉{% elif a.type=='Meeting' %}📅{% elif a.type=='WhatsApp' %}💬{% else %}📝{% endif %}
+        </div>
+        <div class="timeline-body">
+          <div class="timeline-subject">{{ a.subject }}</div>
+          <div class="timeline-meta">{{ a.type }} · {{ a.created_at[:16] }}{% if a.done %} · <span style="color:var(--accent)">Done</span>{% endif %}</div>
+          {% if a.notes %}<div class="timeline-notes">"{{ a.notes }}"</div>{% endif %}
+        </div>
+        {% if not a.done %}
+        <form method="POST" action="{{ url_for('mark_activity_done', aid=a.id) }}" style="margin:0">
+          <input type="hidden" name="redirect" value="{{ url_for('contact_detail', cid=contact.id) }}"/>
+          <button type="submit" class="btn btn-ghost btn-sm">Done</button>
+        </form>
+        {% endif %}
+      </div>
+      {% else %}
+      <p style="color:var(--stone);font-size:.88rem;padding:1rem 0">No activities yet. Log one above.</p>
+      {% endfor %}
+    </div>
+
+    <!-- Deals Tab -->
+    <div class="tab-content" id="tab-deals">
+      <div class="quick-add">
+        <div class="quick-add-title">Add Deal</div>
+        <form method="POST" action="{{ url_for('new_deal') }}" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:.6rem;align-items:end">
+          <input type="hidden" name="contact_id" value="{{ contact.id }}"/>
+          <div class="form-group" style="margin:0"><label>Deal Title</label>
+            <input type="text" name="title" placeholder="e.g. Q2 Retainer" required style="width:100%;padding:.5rem;border:1px solid var(--sand);background:var(--warm);font-family:var(--font-b);font-size:.82rem;outline:none"/>
+          </div>
+          <div class="form-group" style="margin:0"><label>Value (Rs)</label>
+            <input type="number" name="value" placeholder="50000" style="width:100%;padding:.5rem;border:1px solid var(--sand);background:var(--warm);font-family:var(--font-b);font-size:.82rem;outline:none"/>
+          </div>
+          <div class="form-group" style="margin:0"><label>Stage</label>
+            <select name="stage" style="width:100%;padding:.5rem;border:1px solid var(--sand);background:var(--warm);font-family:var(--font-b);font-size:.82rem;outline:none;appearance:none">
+              <option value="prospecting">Prospecting</option><option value="qualified">Qualified</option>
+              <option value="proposal">Proposal</option><option value="negotiation">Negotiation</option>
+              <option value="closed-won">Closed Won</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-primary btn-sm">Add</button>
+        </form>
+      </div>
+      {% for d in deals %}
+      <div class="deal-item">
+        <div>
+          <div style="font-weight:500;color:var(--ink);font-size:.92rem">{{ d.title }}</div>
+          <div style="font-size:.75rem;color:var(--stone);margin-top:.2rem">Added {{ d.created_at[:10] }}{% if d.expected_close %} · Close {{ d.expected_close }}{% endif %}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-family:var(--font-d);font-size:1.1rem;color:var(--ink)">Rs{{ "{:,.0f}".format(d.value) }}</div>
+          <span class="deal-stage stage-{{ d.stage }}">{{ d.stage|replace('-',' ')|title }}</span>
+        </div>
+      </div>
+      {% else %}
+      <p style="color:var(--stone);font-size:.88rem;padding:1rem 0">No deals linked to this contact yet.</p>
+      {% endfor %}
+    </div>
+
+    <!-- Activities Tab -->
+    <div class="tab-content" id="tab-activities">
+      {% for a in activities %}
+      <div class="timeline-item">
+        <div class="timeline-icon">
+          {% if a.type=='Call' %}📞{% elif a.type=='Email' %}✉{% elif a.type=='Meeting' %}📅{% elif a.type=='WhatsApp' %}💬{% else %}📝{% endif %}
+        </div>
+        <div class="timeline-body">
+          <div class="timeline-subject">{{ a.type }}: {{ a.subject }}</div>
+          <div class="timeline-meta">{{ a.created_at[:16] }}{% if a.done %} · <span style="color:var(--accent)">Completed</span>{% endif %}</div>
+          {% if a.notes %}<div class="timeline-notes">{{ a.notes }}</div>{% endif %}
+        </div>
+      </div>
+      {% else %}
+      <p style="color:var(--stone);font-size:.88rem;padding:1rem 0">No activities logged yet.</p>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function showTab(name, el){
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  el.classList.add('active');
+}
+</script>
+{% endblock %}

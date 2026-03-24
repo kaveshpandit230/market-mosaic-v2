@@ -1,0 +1,40 @@
+{% extends "dash_base.html" %}
+{% block title %}Analytics — Market Mosaic{% endblock %}
+{% block extra_head %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-top:1.5rem}
+.chart-card{background:var(--warm);border:1px solid var(--sand);padding:1.5rem}
+.chart-title{font-family:var(--font-d);font-size:1.05rem;font-weight:600;margin-bottom:1.2rem;color:var(--ink)}
+canvas{max-height:240px}
+@media(max-width:700px){.chart-grid{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+{% block dash_content %}
+<div class="dash-header">
+  <h1 class="dash-title">Analytics</h1>
+  <p class="dash-sub">Performance overview across all campaigns and leads.</p>
+</div>
+<div style="display:flex;gap:.8rem;margin-bottom:1.5rem;flex-wrap:wrap">
+  <a href="{{ url_for('export_campaigns') }}" class="btn btn-ghost btn-sm">Export Campaigns CSV</a>
+  <a href="{{ url_for('export_leads') }}" class="btn btn-ghost btn-sm">Export Leads CSV</a>
+</div>
+<div class="chart-grid">
+  <div class="chart-card"><p class="chart-title">Clicks by Campaign</p><canvas id="clicksChart"></canvas></div>
+  <div class="chart-card"><p class="chart-title">Impressions by Campaign</p><canvas id="impChart"></canvas></div>
+  <div class="chart-card"><p class="chart-title">Spend by Campaign (Rs)</p><canvas id="spendChart"></canvas></div>
+  <div class="chart-card"><p class="chart-title">Conversions by Campaign</p><canvas id="convChart"></canvas></div>
+  <div class="chart-card"><p class="chart-title">Leads by Source</p><canvas id="srcChart"></canvas></div>
+  <div class="chart-card"><p class="chart-title">Leads by Status</p><canvas id="statusChart"></canvas></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const d={{ chart_data|safe }};
+const pal=['#8b6f47','#c4a882','#1a1714','#3d3830','#c4b9a8','#e8e0d0'];
+const bar=(id,data,col)=>new Chart(document.getElementById(id),{type:'bar',data:{labels:d.labels,datasets:[{data,backgroundColor:col||pal[0],borderRadius:3}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{grid:{display:false}},y:{grid:{color:'#e8e0d0'}}}}});
+const dough=(id,labels,data)=>new Chart(document.getElementById(id),{type:'doughnut',data:{labels,datasets:[{data,backgroundColor:pal}]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{font:{size:11}}}}}});
+bar('clicksChart',d.clicks,pal[0]);bar('impChart',d.impressions,pal[1]);bar('spendChart',d.spent,pal[2]);bar('convChart',d.conversions,'#3a7d44');
+dough('srcChart',d.lead_sources,d.lead_source_counts);dough('statusChart',d.lead_statuses,d.lead_status_counts);
+</script>
+{% endblock %}
