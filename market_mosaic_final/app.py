@@ -1294,7 +1294,7 @@ def _seed_crm_demo(db, uid):
         (uid,'Kiran Pandit','kiran@marketmosaic.in','+91 91606 43434','Market Mosaic','Founder','Direct','customer','Kavesh'),
     ]
     db.executemany('INSERT INTO contacts (user_id,name,email,phone,company,title,source,stage,owner) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)', contacts_data)
-    cids = [r[0] for r in db.execute('SELECT id FROM contacts WHERE user_id=%s ORDER BY id DESC LIMIT 8',(uid,)).fetchall()][::-1]
+    cids = [r['id'] for r in db.execute('SELECT id FROM contacts WHERE user_id=%s ORDER BY id DESC LIMIT 8',(uid,)).fetchall()][::-1]
     deals_data = [
         (uid,'TechCorp Annual Contract',cids[0],480000,'closed_won',100,'2026-02-28','Kavesh'),
         (uid,'LaunchPad Brand Refresh',cids[1],120000,'negotiation',70,'2026-04-15','Kavesh'),
