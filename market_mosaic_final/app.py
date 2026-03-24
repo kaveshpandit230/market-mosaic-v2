@@ -1389,13 +1389,15 @@ def google_callback():
                 user = db.execute('SELECT * FROM users WHERE email=%s', (email,)).fetchone()
                 _seed_demo(db, user['id'])
                 _seed_crm_demo(db, user['id'])
-        session['user_id'] = user['id']
-        session['user_name'] = user['name']
-        flash(f'Welcome, {user["name"]}!', 'success')
+            user_id   = user['id']
+            user_name = user['name']
+        session['user_id']   = user_id
+        session['user_name'] = user_name
+        flash(f'Welcome, {user_name}!', 'success')
         return redirect(url_for('dashboard'))
     except Exception as e:
-        app.logger.error(f'Google OAuth error: {e}')
-        flash(f'Google login failed. Please try again.', 'error')
+        import traceback; app.logger.error(f'Google OAuth error: {e}\n{traceback.format_exc()}')
+        flash(f'Google login failed: {str(e)}', 'error')
         return redirect(url_for('login'))
 
 
