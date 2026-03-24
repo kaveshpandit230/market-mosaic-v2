@@ -1,0 +1,23 @@
+{% extends "dash_base.html" %}
+{% block title %}Notifications — Market Mosaic{% endblock %}
+{% block dash_content %}
+<div class="dash-header">
+  <h1 class="dash-title">Notifications</h1>
+  <p class="dash-sub">Your recent activity and alerts.</p>
+</div>
+<div class="dash-card" style="max-width:700px;padding:0">
+  {% if notifs %}
+  {% for n in notifs %}
+  <div style="padding:1.1rem 1.5rem;border-bottom:1px solid var(--sand);display:flex;gap:1rem;align-items:flex-start">
+    <div style="width:8px;height:8px;border-radius:50%;background:{% if not n.read %}var(--accent){% else %}var(--stone){% endif %};margin-top:.55rem;flex-shrink:0"></div>
+    <div>
+      <p style="color:var(--ink);font-size:.92rem">{{ n.message }}</p>
+      <p style="color:var(--stone);font-size:.75rem;margin-top:.2rem">{{ n.created_at[:16] }}</p>
+    </div>
+  </div>
+  {% endfor %}
+  {% else %}
+  <div style="padding:3rem;text-align:center;color:var(--stone)">No notifications yet.</div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,82 @@
+{% extends "dash_base.html" %}
+{% block title %}CRM Analytics — Market Mosaic{% endblock %}
+{% block extra_head %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+.analytics-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:1.2rem;margin-bottom:2rem}
+.chart-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1.5rem;margin-bottom:1.5rem}
+.insight-card{background:var(--warm);border:1px solid var(--sand);padding:1.5rem;margin-bottom:1.5rem}
+.insight-item{display:flex;gap:.8rem;align-items:flex-start;padding:.7rem 0;border-bottom:1px solid var(--sand)}
+.insight-item:last-child{border:none}
+.ins-icon{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;flex-shrink:0;color:#fff;margin-top:.1rem}
+.ins-icon.warning{background:#b7770d}
+.ins-icon.success{background:#3a7d44}
+canvas{max-height:220px}
+@media(max-width:900px){.analytics-kpis{grid-template-columns:1fr 1fr}.chart-grid{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+{% block dash_content %}
+<div class="dash-header">
+  <h1 class="dash-title">CRM Analytics</h1>
+  <p class="dash-sub">Sales performance and pipeline intelligence.</p>
+</div>
+
+<div class="analytics-kpis">
+  <div class="stat-card"><div class="stat-card-label">Won Revenue</div><div class="stat-card-value" style="font-size:1.5rem;color:var(--success,#3a7d44)">Rs{{ "{:,.0f}".format(won_value) }}</div><div class="stat-card-sub">{{ won_count }} deals</div></div>
+  <div class="stat-card"><div class="stat-card-label">Conversion Rate</div><div class="stat-card-value">{{ conv_rate }}<span style="font-size:1rem">%</span></div><div class="stat-card-sub">{{ won_count }} won / {{ lost_count }} lost</div></div>
+  <div class="stat-card"><div class="stat-card-label">Avg Deal Size</div><div class="stat-card-value" style="font-size:1.5rem">Rs{{ "{:,.0f}".format(avg_deal) }}</div><div class="stat-card-sub">Across won deals</div></div>
+  <div class="stat-card"><div class="stat-card-label">Total Deals</div><div class="stat-card-value">{{ total_deals }}</div><div class="stat-card-sub">In pipeline</div></div>
+</div>
+
+<div class="chart-grid">
+  <div class="dash-card"><p style="font-family:var(--font-d);font-size:1rem;font-weight:600;margin-bottom:1rem">Deal Value by Stage</p><canvas id="stageValChart"></canvas></div>
+  <div class="dash-card"><p style="font-family:var(--font-d);font-size:1rem;font-weight:600;margin-bottom:1rem">Deal Count by Stage</p><canvas id="stageCntChart"></canvas></div>
+  <div class="dash-card"><p style="font-family:var(--font-d);font-size:1rem;font-weight:600;margin-bottom:1rem">Contacts by Source</p><canvas id="sourceChart"></canvas></div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem">
+  <div class="dash-card">
+    <p style="font-family:var(--font-d);font-size:1rem;font-weight:600;margin-bottom:1rem">New Contacts by Month</p>
+    <canvas id="moChart"></canvas>
+  </div>
+  <div class="dash-card">
+    <p style="font-family:var(--font-d);font-size:1rem;font-weight:600;margin-bottom:.8rem">Top Won Deals</p>
+    <table>
+      <thead><tr><th>Deal</th><th>Value</th></tr></thead>
+      <tbody>
+      {% for d in top_deals %}
+      <tr>
+        <td style="font-size:.85rem;color:var(--ink)">{{ d.title }}</td>
+        <td style="font-family:var(--font-d);font-size:.95rem;color:var(--accent)">Rs{{ "{:,.0f}".format(d.value) }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="2" style="color:var(--stone);font-size:.85rem;padding:1rem">No won deals yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if insights %}
+<div class="insight-card" style="margin-top:1.5rem">
+  <p style="font-family:var(--font-d);font-size:1rem;font-weight:600;margin-bottom:.8rem">Smart Insights</p>
+  {% for i in insights %}
+  <div class="insight-item">
+    <div class="ins-icon {{ i.type }}">{{ '!' if i.type=='warning' else '+' }}</div>
+    <p style="font-size:.88rem;color:var(--ink-soft)">{{ i.msg }}</p>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+const c={{ chart|safe }};
+const pal=['#8b6f47','#c4a882','#1a1714','#3d3830','#c4b9a8','#e8e0d0'];
+const bar=(id,labels,data,color)=>new Chart(document.getElementById(id),{type:'bar',data:{labels,datasets:[{data,backgroundColor:color||pal[0],borderRadius:3}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{grid:{display:false}},y:{grid:{color:'#e8e0d0'}}}}});
+const dough=(id,labels,data)=>new Chart(document.getElementById(id),{type:'doughnut',data:{labels,datasets:[{data,backgroundColor:pal}]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{font:{size:10}}}}}});
+if(c.stage_labels.length){bar('stageValChart',c.stage_labels,c.stage_vals,pal[0]);bar('stageCntChart',c.stage_labels,c.stage_cnts,pal[1]);};
+if(c.src_labels.length) dough('sourceChart',c.src_labels,c.src_cnts);
+if(c.mo_labels.length)  bar('moChart',c.mo_labels,c.mo_cnts,'#3a7d44');
+</script>
+{% endblock %}

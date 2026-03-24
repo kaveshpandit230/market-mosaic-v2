@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}{{ post.title }} — Market Mosaic Blog{% endblock %}
+{% block extra_head %}
+<style>
+.post-hero{padding:9rem 4rem 3rem;max-width:800px;margin:0 auto}
+.post-meta{display:flex;gap:1.2rem;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap}
+.post-tag{font-size:.65rem;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+.post-date{font-size:.78rem;color:var(--stone)}
+.post-author{font-size:.78rem;color:var(--stone)}
+.post-title{font-family:var(--font-d);font-size:clamp(2rem,4vw,3.2rem);font-weight:300;line-height:1.15;color:var(--ink);margin-bottom:1rem}
+.post-excerpt{font-size:1.05rem;color:var(--ink-soft);font-style:italic;margin-bottom:2rem}
+.post-divider{width:50px;height:1px;background:var(--accent);margin-bottom:2.5rem}
+.post-body{max-width:800px;margin:0 auto;padding:0 4rem 6rem}
+.post-body p{color:var(--ink-soft);margin-bottom:1.4rem;line-height:1.8;font-size:.98rem}
+.post-body h2{font-family:var(--font-d);font-size:1.8rem;font-weight:400;color:var(--ink);margin:2.5rem 0 1rem}
+.post-body h3{font-family:var(--font-d);font-size:1.3rem;font-weight:600;color:var(--ink);margin:2rem 0 .7rem}
+.post-body ul{margin:0 0 1.4rem 1.5rem;color:var(--ink-soft);font-size:.98rem;line-height:1.8}
+.post-body blockquote{border-left:3px solid var(--accent);padding:1rem 1.5rem;margin:2rem 0;background:var(--warm);font-family:var(--font-d);font-size:1.15rem;font-style:italic;color:var(--ink)}
+.back-link{display:inline-flex;align-items:center;gap:.4rem;font-size:.75rem;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);text-decoration:none;margin-bottom:2rem}
+.back-link:hover{text-decoration:underline}
+@media(max-width:900px){
+  .post-hero,.post-body{padding-left:1.5rem;padding-right:1.5rem}
+  .post-hero{padding-top:7rem}
+}
+</style>
+{% endblock %}
+{% block content %}
+<div class="post-hero">
+  <a href="{{ url_for('blog') }}" class="back-link">← Back to Blog</a>
+  <div class="post-meta">
+    <span class="post-tag">{{ post.tag }}</span>
+    <span class="post-date">{{ post.date }}</span>
+    <span class="post-author">By {{ post.author }}</span>
+  </div>
+  <h1 class="post-title">{{ post.title }}</h1>
+  <p class="post-excerpt">{{ post.excerpt }}</p>
+  <div class="post-divider"></div>
+</div>
+<div class="post-body">
+  {{ post.content | safe }}
+</div>
+{% endblock %}

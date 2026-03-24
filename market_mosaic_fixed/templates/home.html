@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Market Mosaic — Brand & Marketing Agency{% endblock %}
+{% block extra_head %}
+<style>
+.hero{min-height:100vh;display:grid;grid-template-columns:1fr 1fr;padding-top:5rem}
+.hero-left{display:flex;flex-direction:column;justify-content:center;padding:6rem 4rem}
+.hero-eyebrow{font-size:.7rem;font-weight:500;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:1.4rem;opacity:0;animation:fadeUp .8s .2s forwards}
+.hero-headline{font-family:var(--font-d);font-size:clamp(3rem,5vw,5.2rem);font-weight:300;line-height:1.08;margin-bottom:1.8rem;opacity:0;animation:fadeUp .8s .4s forwards}
+.hero-headline em{font-style:italic;color:var(--accent)}
+.hero-sub{max-width:42ch;color:var(--ink-soft);margin-bottom:2.8rem;opacity:0;animation:fadeUp .8s .6s forwards}
+.hero-ctas{display:flex;gap:1rem;opacity:0;animation:fadeUp .8s .8s forwards}
+.hero-right{background:var(--warm);position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.hero-mosaic{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:340px;opacity:0;animation:fadeIn 1.2s .6s forwards}
+.mosaic-tile{border-radius:0;transition:transform .4s}
+.mosaic-tile:hover{transform:scale(1.04)}
+.mt1{height:140px;background:linear-gradient(135deg,#e8d8fb,#c9b3f5)}
+.mt2{height:140px;background:#7c4fd4;opacity:.8}
+.mt3{height:280px;background:#1a1240;grid-row:span 2}
+.mt4{height:130px;background:linear-gradient(135deg,#f0eaff,#ddd0f7)}
+.mt5{height:130px;background:#6c3fc9;opacity:.6}
+.stats-strip{background:var(--ink);padding:3rem 4rem;display:flex;justify-content:space-around;flex-wrap:wrap;gap:2rem}
+.stat{text-align:center}
+.stat-num{font-family:var(--font-d);font-size:2.8rem;font-weight:300;color:var(--cream);letter-spacing:-.01em}
+.stat-num span{color:var(--accent-light)}
+.stat-label{font-size:.7rem;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--stone);margin-top:.2rem}
+.section{padding:7rem 4rem}
+.work-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem}
+.work-card{cursor:pointer}
+.work-card-img{height:260px;display:flex;align-items:center;justify-content:center;font-size:5rem;border:1px solid var(--sand);transition:transform .5s,box-shadow .3s}
+.work-card:hover .work-card-img{transform:scale(1.02);box-shadow:0 12px 40px rgba(0,0,0,.07)}
+.work-tag{font-size:.65rem;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin:.9rem 0 .3rem}
+.work-title{font-family:var(--font-d);font-size:1.25rem;font-weight:400}
+.cta-band{background:var(--warm);border:1px solid var(--sand);padding:5rem 4rem;text-align:center}
+.cta-band .section-heading{margin-bottom:1.5rem}
+.cta-band p{color:var(--ink-soft);max-width:50ch;margin:0 auto 2.5rem}
+.cta-btns{display:flex;gap:1rem;justify-content:center;flex-wrap:wrap}
+@keyframes fadeUp{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@media(max-width:900px){
+  .hero{grid-template-columns:1fr}
+  .hero-right{display:none}
+  .hero-left{padding:4rem 1.5rem}
+  .section{padding:5rem 1.5rem}
+  .work-grid{grid-template-columns:1fr}
+  .cta-band{padding:4rem 1.5rem}
+}
+</style>
+{% endblock %}
+{% block content %}
+<section class="hero">
+  <div class="hero-left">
+    <p class="hero-eyebrow">Brand & Marketing Agency — India</p>
+    <h1 class="hero-headline">We craft brands that <em>move</em> people.</h1>
+    <p class="hero-sub">Market Mosaic is a full-service creative agency helping ambitious businesses build distinctive identities and meaningful connections with their audiences.</p>
+    <div class="hero-ctas">
+      <a href="{{ url_for('services') }}" class="btn btn-primary">Our Services</a>
+      <a href="{{ url_for('signup') }}" class="btn btn-ghost">Start Free →</a>
+    </div>
+  </div>
+  <div class="hero-right">
+    <div class="hero-mosaic">
+      <div class="mosaic-tile mt1"></div>
+      <div class="mosaic-tile mt2"></div>
+      <div class="mosaic-tile mt3"></div>
+      <div class="mosaic-tile mt4"></div>
+      <div class="mosaic-tile mt5"></div>
+    </div>
+  </div>
+</section>
+
+<div class="stats-strip">
+  <div class="stat"><div class="stat-num">120<span>+</span></div><div class="stat-label">Brands Launched</div></div>
+  <div class="stat"><div class="stat-num">8<span>yrs</span></div><div class="stat-label">In the Industry</div></div>
+  <div class="stat"><div class="stat-num">96<span>%</span></div><div class="stat-label">Client Retention</div></div>
+  <div class="stat"><div class="stat-num">14</div><div class="stat-label">Industry Awards</div></div>
+</div>
+
+<section class="section">
+  <p class="section-label">Selected Work</p>
+  <h2 class="section-heading">Projects we're proud of.</h2>
+  <div class="work-grid">
+    <div class="work-card">
+      <div class="work-card-img" style="background:linear-gradient(135deg,#f0ebe2,#e0d5c4)">◎</div>
+      <p class="work-tag">Brand Identity</p><p class="work-title">Solène Skincare</p>
+    </div>
+    <div class="work-card">
+      <div class="work-card-img" style="background:linear-gradient(135deg,#e8e4dd,#d8cfc2)">△</div>
+      <p class="work-tag">Campaign Strategy</p><p class="work-title">Pinnacle Finance</p>
+    </div>
+    <div class="work-card">
+      <div class="work-card-img" style="background:linear-gradient(135deg,#f2ede6,#e6ddd0)">□</div>
+      <p class="work-tag">Digital Marketing</p><p class="work-title">Arlo Home</p>
+    </div>
+  </div>
+</section>
+
+<section class="cta-band">
+  <p class="section-label">Get Started</p>
+  <h2 class="section-heading">Ready to grow your brand?</h2>
+  <p>Join Market Mosaic and get access to your own marketing dashboard, campaign tracker, and lead manager — free to start.</p>
+  <div class="cta-btns">
+    <a href="{{ url_for('signup') }}" class="btn btn-primary">Create Free Account</a>
+    <a href="{{ url_for('contact') }}" class="btn btn-ghost">Talk to Us</a>
+  </div>
+</section>
+{% endblock %}

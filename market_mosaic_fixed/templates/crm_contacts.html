@@ -1,0 +1,45 @@
+{% extends "dash_base.html" %}
+{% block title %}Contacts — Market Mosaic CRM{% endblock %}
+{% block dash_content %}
+<div class="dash-header"><h1 class="dash-title">Contacts</h1><p class="dash-sub">Manage your entire contact database.</p></div>
+<div class="page-actions" style="flex-wrap:wrap;gap:.6rem">
+  <a href="{{ url_for('crm_new_contact') }}" class="btn btn-primary btn-sm">+ New Contact</a>
+  <a href="{{ url_for('crm_export_contacts') }}" class="btn btn-ghost btn-sm">Export CSV</a>
+  <form method="GET" style="margin:0;display:flex;gap:.5rem">
+    <input name="q" value="{{ q }}" placeholder="Search contacts..." style="padding:.45rem .8rem;border:1px solid var(--sand);background:var(--warm);font-family:var(--font-b);font-size:.85rem;outline:none;width:200px"/>
+    <button type="submit" class="btn btn-ghost btn-sm">Search</button>
+  </form>
+  <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-left:auto">
+    {% for s in ['','lead','prospect','qualified','customer','churned'] %}
+    <a href="{{ url_for('crm_contacts',stage=s,q=q) }}" class="btn btn-ghost btn-sm" style="{{ 'background:var(--ink);color:var(--cream)' if stage_f==s else '' }}">{{ s|title if s else 'All' }}</a>
+    {% endfor %}
+  </div>
+</div>
+<div class="full-table"><div class="dash-card">
+<table>
+<thead><tr><th>Name</th><th>Company</th><th>Title</th><th>Email</th><th>Phone</th><th>Source</th><th>Stage</th><th>Owner</th><th>Actions</th></tr></thead>
+<tbody>
+{% for c in contacts %}
+<tr>
+  <td><a href="{{ url_for('crm_contact_detail',cid=c.id) }}" style="font-weight:500;color:var(--ink)">{{ c.name }}</a></td>
+  <td style="font-size:.83rem">{{ c.company or '—' }}</td>
+  <td style="font-size:.83rem">{{ c.title or '—' }}</td>
+  <td style="font-size:.82rem">{{ c.email or '—' }}</td>
+  <td style="font-size:.82rem">{{ c.phone or '—' }}</td>
+  <td style="font-size:.82rem">{{ c.source }}</td>
+  <td><span class="badge badge-{{ 'active' if c.stage=='customer' else 'new' if c.stage=='lead' else 'contacted' }}">{{ c.stage }}</span></td>
+  <td style="font-size:.82rem">{{ c.owner or '—' }}</td>
+  <td><div style="display:flex;gap:.4rem">
+    <a href="{{ url_for('crm_edit_contact',cid=c.id) }}" class="btn btn-ghost btn-sm">Edit</a>
+    <form method="POST" action="{{ url_for('crm_delete_contact',cid=c.id) }}" style="margin:0" onsubmit="return confirm('Delete {{ c.name }}?')">
+      <button type="submit" class="btn btn-danger btn-sm">X</button>
+    </form>
+  </div></td>
+</tr>
+{% else %}
+<tr><td colspan="9" style="text-align:center;padding:3rem;color:var(--stone)">No contacts yet. <a href="{{ url_for('crm_new_contact') }}" style="color:var(--accent)">Add your first →</a></td></tr>
+{% endfor %}
+</tbody>
+</table>
+</div></div>
+{% endblock %}
