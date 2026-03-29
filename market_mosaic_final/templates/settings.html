@@ -1,0 +1,70 @@
+{% extends "dash_base.html" %}
+{% block title %}Settings — Market Mosaic{% endblock %}
+{% block dash_content %}
+<div class="dash-header">
+  <h1 class="dash-title">Settings</h1>
+  <p class="dash-sub">Manage your account, security, and API access.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:1.5rem;max-width:600px">
+  <div class="dash-card">
+    <p style="font-family:var(--font-d);font-size:1.05rem;font-weight:600;margin-bottom:1.5rem">Profile</p>
+    <form method="POST">
+      <input type="hidden" name="action" value="profile"/>
+      <div class="form-row">
+        <div class="form-group"><label>Full Name</label><input type="text" name="name" value="{{ user.name }}" required/></div>
+        <div class="form-group"><label>Company</label><input type="text" name="company" value="{{ user.company }}" required/></div>
+      </div>
+      <div class="form-group"><label>Email Address</label><input value="{{ user.email }}" disabled style="opacity:.6;cursor:not-allowed"/></div>
+      <div class="form-row">
+        <div class="form-group"><label>Plan</label><input value="{{ user.plan|title }}" disabled style="opacity:.6;cursor:not-allowed"/></div>
+        <div class="form-group"><label>Member Since</label><input value="{{ user.created_at[:10] }}" disabled style="opacity:.6;cursor:not-allowed"/></div>
+      </div>
+      <button type="submit" class="btn btn-primary">Save Profile</button>
+    </form>
+  </div>
+  <div class="dash-card">
+    <p style="font-family:var(--font-d);font-size:1.05rem;font-weight:600;margin-bottom:1.5rem">Change Password</p>
+    <form method="POST">
+      <input type="hidden" name="action" value="password"/>
+      <div class="form-group"><label>Current Password</label><input type="password" name="current_password" required/></div>
+      <div class="form-row">
+        <div class="form-group"><label>New Password</label><input type="password" name="new_password" required/></div>
+        <div class="form-group"><label>Confirm New Password</label><input type="password" name="confirm_password" required/></div>
+      </div>
+      <button type="submit" class="btn btn-primary">Update Password</button>
+    </form>
+  </div>
+  <div class="dash-card">
+    <p style="font-family:var(--font-d);font-size:1.05rem;font-weight:600;margin-bottom:.5rem">API Access</p>
+    <p style="font-size:.85rem;color:var(--ink-soft);margin-bottom:1.2rem">Use your API key to access Market Mosaic data programmatically. Pass it as the <code style="background:var(--sand);padding:.1rem .4rem;font-size:.8rem">X-API-Key</code> header.</p>
+    <div class="form-group">
+      <label>Your API Key</label>
+      <input type="text" value="{{ user.api_key or 'Not generated yet' }}" id="apiKeyInput" readonly style="font-family:monospace;font-size:.82rem"/>
+    </div>
+    <div style="display:flex;gap:.8rem;flex-wrap:wrap">
+      <button onclick="copyKey()" class="btn btn-ghost btn-sm" type="button">Copy Key</button>
+      <form method="POST" style="margin:0">
+        <input type="hidden" name="action" value="regenerate_key"/>
+        <button type="submit" class="btn btn-ghost btn-sm" onclick="return confirm('Regenerate? Old key stops working.')">Regenerate</button>
+      </form>
+    </div>
+    <div style="margin-top:1.2rem;padding:1rem;background:var(--warm);border:1px solid var(--sand)">
+      <p style="font-size:.7rem;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:.5rem">Endpoints</p>
+      <code style="font-size:.78rem;color:var(--ink-soft);display:block;line-height:1.8">GET /api/v1/campaigns<br>GET /api/v1/leads<br>GET /api/v1/stats</code>
+    </div>
+  </div>
+  <div class="dash-card">
+    <p style="font-family:var(--font-d);font-size:1.05rem;font-weight:600;margin-bottom:.5rem">Danger Zone</p>
+    <p style="font-size:.88rem;color:var(--ink-soft);margin-bottom:1rem">Irreversible actions. Proceed carefully.</p>
+    <a href="{{ url_for('logout') }}" class="btn btn-danger btn-sm">Log Out</a>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function copyKey(){
+  const k=document.getElementById('apiKeyInput').value;
+  navigator.clipboard.writeText(k).then(()=>alert('Copied!'));
+}
+</script>
+{% endblock %}
